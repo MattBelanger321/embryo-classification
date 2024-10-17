@@ -7,3 +7,5 @@ import parse_training_csv as parser
 # and use imwrite() from open cv to create png image
 # take care to write the image in the ./generated_images directory, making sure to miminc the file structure
 # seen in .data
+
+## here is my new comment
