@@ -8,4 +8,4 @@ import parse_training_csv as parser
 # take care to write the image in the ./generated_images directory, making sure to miminc the file structure
 # seen in .data
 
-## here is my new comment
+parser.parse_gi_tract_training_data()
