@@ -14,7 +14,7 @@ def find_file(directory, file_prefix):
     # Use rglob to search for files that start with the given prefix
     for file in directory_path.rglob(f"{file_prefix}*"):
         if file.is_file():
-            return file.name  # Return the first matching file's path
+            return file  # Return the first matching file's path
     return None  # Return None if no file is found
 
 def get_dimensions(case, day, slice_name):
@@ -24,8 +24,8 @@ def get_dimensions(case, day, slice_name):
         raise Exception("Error: Training Data Not Found")
     
     png = find_file(directory, slice_name)
-    tokenized_image_name = png.split("_")
-    return int(tokenized_image_name[2]), int(tokenized_image_name[3])  # Ensure dimensions are integers
+    tokenized_image_name = png.name.split("_")
+    return int(tokenized_image_name[2]), int(tokenized_image_name[3]), png  # Ensure dimensions are integers
 
 # Function to convert RLE to a boolean matrix
 def rle_to_matrix(width, height, rle):
@@ -56,8 +56,6 @@ def rle_to_matrix(width, height, rle):
     return bmatrix
 
 def parse_gi_tract_training_data(csv_file_path='./data/train.csv'):
-	training_data = {}
-
 	# Open the CSV file
 	with open(csv_file_path, newline='') as csvfile:
 		reader = csv.reader(csvfile)
@@ -69,17 +67,12 @@ def parse_gi_tract_training_data(csv_file_path='./data/train.csv'):
 				raise Exception(f"Class not recognized {row[:-1]}")
 
 			tokens = row[0].split("_")
-			width, height = get_dimensions(tokens[0], tokens[1], f"{tokens[2]}_{tokens[3]}")
-
-			# Initialize the inner dictionary if it doesn't exist
-			if row[0] not in training_data:
-				training_data[row[0]] = {}
+			width, height, file = get_dimensions(tokens[0], tokens[1], f"{tokens[2]}_{tokens[3]}")
 
 			# Convert RLE string to a list of integers
 			rle_values = []
 			if len(row[2]) > 1:
 				rle_values = list(map(int, row[2].split(" ")))
       
-			training_data[row[0]][row[1]] = rle_to_matrix(width, height, rle_values)
-
-	return training_data
+			mask = rle_to_matrix(width, height, rle_values)
+			yield tokens[0], tokens[1], tokens[2]+tokens[3], row[1], mask, file  # Yield case name, day, class, and mask
