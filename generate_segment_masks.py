@@ -1,11 +1,30 @@
+import cv2
+import os
+import numpy as np
 import parse_training_csv as parser
 
-# This application uses the function(s) exposed by parse_training_csv to
-# generate images of pixels that will highlight the segment that they represent. This
-# will give us a visual represenetation of what each class actually represents
-# using the boolean matrix, you should basically be able to multiply the boolean matrix by 255
-# and use imwrite() from open cv to create png image
-# take care to write the image in the ./generated_images directory, making sure to miminc the file structure
-# seen in .data
+# Function to create directory structure
+def create_directory_structure(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
 
-parser.parse_gi_tract_training_data()
+def save_segment_images(training_data, output_directory='./generated_images'):
+    for case, segments in training_data.items():
+        # Create the output path for each case
+        case_output_path = os.path.join(output_directory, case)
+        create_directory_structure(case_output_path)
+        
+        for class_name, matrix in segments.items():
+            # Generate the output image filename
+            output_filename = f"{case}_{class_name}.png"
+            output_filepath = os.path.join(case_output_path, output_filename)
+
+            # Convert boolean matrix to uint8 image
+            image = (matrix * 255).astype(np.uint8)  # Convert boolean to uint8
+            
+            # Save the image using OpenCV
+            cv2.imwrite(output_filepath, image)
+
+# Main application code
+training_data = parser.parse_gi_tract_training_data()
+save_segment_images(training_data)
