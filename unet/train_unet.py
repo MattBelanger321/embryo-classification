@@ -5,6 +5,7 @@ import os
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, parent_dir)
 
+import tensorflow as tf
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, UpSampling2D, concatenate, Input
 from tensorflow.keras.optimizers import SGD
@@ -79,8 +80,6 @@ def define_unet():
     return model
 
 def train_unet(input, labels, model):
-    input = np.asarray(input).reshape(-1,256,256,1)
-    labels = np.asarray(labels).reshape(-1,256,256,3)
     # Split labeled data into test and train data
     X_train, X_test, y_train, y_test = train_test_split(input, labels, test_size=0.2, random_state=42)
 
@@ -88,17 +87,12 @@ def train_unet(input, labels, model):
     history = model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=2)
     _, acc = model.evaluate(X_test, y_test, verbose=0)
     print('> %.3f' % (acc * 100.0))
-
+    # Save the model
+    model.save('unet_model.h5')
     return model
 
-def load_data_and_train(csv_file_path='./data/train.csv', width=256, height=256):
-    sample_counter = 1
-
-    model = define_unet()
-
+def preprocess_data(csv_file_path='./data/train.csv', width=256, height=256):
     # Parse the segmentation masks and original files
-    preprocessed_labels = []
-    input = [] # initalize an empty list to hold inputs
     for segmentation_mask, original_file in parser.parse_gi_tract_training_data(csv_file_path):
         labels = []  # Initialize an empty list to hold labels
         for (case_name, day, slice_idx, class_name, matrix) in segmentation_mask.values():
@@ -108,20 +102,39 @@ def load_data_and_train(csv_file_path='./data/train.csv', width=256, height=256)
         labels_array = np.asarray(labels)
         # Reshape labels_array to (height, width, channels) for OpenCV
         labels_array = np.transpose(labels_array, (1, 2, 0))
-        labels_array = cv2.resize(labels_array, (width,height), interpolation=cv2.INTER_LINEAR)
-        preprocessed_labels.append(labels_array)
+        labels_array = cv2.resize(labels_array, (width, height), interpolation=cv2.INTER_LINEAR)
 
-        input_as_matrix = cv2.imread(original_file, cv2.IMREAD_GRAYSCALE)/255.0 # re-scale to (0,1)
-        input_as_matrix = cv2.resize(input_as_matrix,(width,height), interpolation=cv2.INTER_LINEAR)
+        input_as_matrix = cv2.imread(original_file, cv2.IMREAD_GRAYSCALE) / 255.0  # Re-scale to (0, 1)
+        input_as_matrix = cv2.resize(input_as_matrix, (width, height), interpolation=cv2.INTER_LINEAR)
         input_as_matrix = np.asarray(input_as_matrix)
-        input.append(input_as_matrix)
 
-        if sample_counter % 100 == 0:
-            print(f"Training #{1 + sample_counter // 100}")
-            model = train_unet(input, preprocessed_labels, model)
-            preprocessed_labels = []  # reinitialize to an empty list to hold labels
-            input = [] # reinitalize to an empty list to hold inputs
-        
-        sample_counter += 1
+        input_as_matrix = np.asarray(input_as_matrix).reshape(256, 256, 1)
+        labels_array = np.asarray(labels_array).reshape(256, 256, 3)
 
-load_data_and_train()
+        yield input_as_matrix, labels_array  # Correct: Yield labels_array instead of labels
+
+
+# Create the dataset from a generator function
+dataset = tf.data.Dataset.from_generator(
+    lambda: preprocess_data(),  # Pass generator for filename, label pairs
+    output_signature=(
+        tf.TensorSpec(shape=(256,256,1), dtype=tf.float32),
+        tf.TensorSpec(shape=(256,256,3), dtype=tf.float32), 
+    )
+)
+
+# Batch and prefetch the dataset for better performance
+batch_size = 32
+dataset = dataset.batch(batch_size)
+dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
+
+# Split into training and validation using sharding
+train_dataset = dataset.shard(num_shards=5, index=0)  # Approximate split
+val_dataset = dataset.shard(num_shards=5, index=1)
+
+# Define and compile the U-Net model
+model = define_unet()
+
+# Train the model
+model.fit(train_dataset, validation_data=val_dataset, epochs=10)
+_, acc = model.evaluate(val_dataset, verbose=2)

@@ -2,3 +2,5 @@
 /venv
 /__pycache__
 /generated_masks
+test_unet.py
+unet_model.h5
