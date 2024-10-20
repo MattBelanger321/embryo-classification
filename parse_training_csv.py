@@ -53,7 +53,7 @@ def rle_to_matrix(width, height, rle):
             else:
                 raise Exception(f"Run length exceeds matrix bounds {new_row}x{new_column} {width}x{height} {i} {rle[0]}")
 
-    return bmatrix
+    return bmatrix.astype(np.float32)
 
 def parse_gi_tract_training_data(csv_file_path='./data/train.csv'):
 	# Open the CSV file

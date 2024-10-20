@@ -1,9 +1,23 @@
+import sys
+import os
+
+# Get the parent directory and add it to sys.path
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, parent_dir)
+
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, UpSampling2D, concatenate, Input
 from tensorflow.keras.optimizers import SGD
+import parse_training_csv as parser
+
+from sklearn.model_selection import train_test_split
+
+import numpy as np
+
+import cv2
 
 def define_unet():
-    inputs = Input(shape=(512, 512, 1))  # Adjust input shape as needed
+    inputs = Input(shape=(256, 256, 1))  # Adjust input shape as needed
 
 	# we use padding same so that the input doesnt change during convolutions
 	# the naming convention is
@@ -63,3 +77,51 @@ def define_unet():
     model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
     
     return model
+
+def train_unet(input, labels, model):
+    input = np.asarray(input).reshape(-1,256,256,1)
+    labels = np.asarray(labels).reshape(-1,256,256,3)
+    # Split labeled data into test and train data
+    X_train, X_test, y_train, y_test = train_test_split(input, labels, test_size=0.2, random_state=42)
+
+    # Fit model
+    history = model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=2)
+    _, acc = model.evaluate(X_test, y_test, verbose=0)
+    print('> %.3f' % (acc * 100.0))
+
+    return model
+
+def load_data_and_train(csv_file_path='./data/train.csv', width=256, height=256):
+    sample_counter = 1
+
+    model = define_unet()
+
+    # Parse the segmentation masks and original files
+    preprocessed_labels = []
+    input = [] # initalize an empty list to hold inputs
+    for segmentation_mask, original_file in parser.parse_gi_tract_training_data(csv_file_path):
+        labels = []  # Initialize an empty list to hold labels
+        for (case_name, day, slice_idx, class_name, matrix) in segmentation_mask.values():
+            labels.append(matrix)  # Append the matrix to the labels list
+
+        # Convert the labels list to a NumPy array
+        labels_array = np.asarray(labels)
+        # Reshape labels_array to (height, width, channels) for OpenCV
+        labels_array = np.transpose(labels_array, (1, 2, 0))
+        labels_array = cv2.resize(labels_array, (width,height), interpolation=cv2.INTER_LINEAR)
+        preprocessed_labels.append(labels_array)
+
+        input_as_matrix = cv2.imread(original_file, cv2.IMREAD_GRAYSCALE)/255.0 # re-scale to (0,1)
+        input_as_matrix = cv2.resize(input_as_matrix,(width,height), interpolation=cv2.INTER_LINEAR)
+        input_as_matrix = np.asarray(input_as_matrix)
+        input.append(input_as_matrix)
+
+        if sample_counter % 100 == 0:
+            print(f"Training #{1 + sample_counter // 100}")
+            model = train_unet(input, preprocessed_labels, model)
+            preprocessed_labels = []  # reinitialize to an empty list to hold labels
+            input = [] # reinitalize to an empty list to hold inputs
+        
+        sample_counter += 1
+
+load_data_and_train()
