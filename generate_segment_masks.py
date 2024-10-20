@@ -21,6 +21,7 @@ def save_segment_images(csv_file_path='./data/train.csv', output_directory='./ge
 			case_output_path = os.path.join(output_directory, "plain_segments", case_name, f"{case_name}_{day}")
 			rgb_output_path = os.path.join(output_directory, "rgb_overlays", case_name, f"{case_name}_{day}")
 			create_directory_structure(case_output_path)
+			create_directory_structure(rgb_output_path)
 
 			# Generate the output image filename
 			output_filename = f"{case_name}_{day}_{slice}_{class_name}.png"
@@ -53,6 +54,20 @@ def save_segment_images(csv_file_path='./data/train.csv', output_directory='./ge
 		cv2.imwrite(rgb_filepath, result_image)  
 		cv2.imwrite(os.path.join(case_output_path,f"{case_name}_{day}_{slice}_original.png" ), original_image)  # Copy file preserving metadata
 
+def save_preprocesses_training_data(csv_file_path='./data/train.csv', output_directory='./preprocessed_data2d'):
+	input_dir = f"{output_directory}/input_data"
+	label_dir = f"{output_directory}/labels"
+	create_directory_structure(input_dir)
+	create_directory_structure(label_dir)
+	i = 1	# using a numeric_prefix for simplicity
+	for input, labels, sample_id in parser.load_data(csv_file_path):
+		input = np.asarray(input).reshape(-1,256,256,1)
+		labels = np.asarray(labels).reshape(-1,256,256,3)
+		np.save(f"{input_dir}/{i}_{sample_id}.npy", input.astype(np.float32))
+		np.save(f"{label_dir}/{i}_{sample_id}.npy", labels.astype(np.float32))
+		i += 1
+
 # Main application code
 if __name__ == "__main__":
 	save_segment_images()  # This will now save images one case at a time
+	save_preprocesses_training_data()
