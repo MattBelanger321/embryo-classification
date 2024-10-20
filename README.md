@@ -1,6 +1,7 @@
 # GI-Tract-Classification
 
 This repo will use 3 segmentation approaches to classifiy this GI TRACT dataset
+https://www.kaggle.com/competitions/uw-madison-gi-tract-image-segmentation/
 
 ## Setup
 
