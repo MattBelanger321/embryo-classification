@@ -6,6 +6,7 @@ parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, parent_dir)
 
 import tensorflow as tf
+import glob
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, UpSampling2D, concatenate, Input
 from tensorflow.keras.optimizers import SGD
@@ -14,8 +15,6 @@ import parse_training_csv as parser
 from sklearn.model_selection import train_test_split
 
 import numpy as np
-
-import cv2
 
 def define_unet():
     inputs = Input(shape=(256, 256, 1))  # Adjust input shape as needed
@@ -79,62 +78,77 @@ def define_unet():
     
     return model
 
-def train_unet(input, labels, model):
-    # Split labeled data into test and train data
-    X_train, X_test, y_train, y_test = train_test_split(input, labels, test_size=0.2, random_state=42)
-
-    # Fit model
-    history = model.fit(X_train, y_train, epochs=10, batch_size=32, verbose=2)
-    _, acc = model.evaluate(X_test, y_test, verbose=0)
-    print('> %.3f' % (acc * 100.0))
-    # Save the model
-    model.save('unet_model.h5')
+def train_unet(train, test, model, batch_size=32, epochs=10):
+    print("Fitting...")
+    # Fit model and validate on test data after each epoch
+    history = model.fit(train, epochs=epochs, validation_data=test, verbose=2)
+    # Evaluate on the test dataset
+    print("Evaluating..")
+    _, acc = model.evaluate(test, verbose=2)
+    print('Test Accuracy: %.3f' % (acc * 100.0))
+    
     return model
 
-def preprocess_data(csv_file_path='./data/train.csv', width=256, height=256):
-    # Parse the segmentation masks and original files
-    for segmentation_mask, original_file in parser.parse_gi_tract_training_data(csv_file_path):
-        labels = []  # Initialize an empty list to hold labels
-        for (case_name, day, slice_idx, class_name, matrix) in segmentation_mask.values():
-            labels.append(matrix)  # Append the matrix to the labels list
+def get_dataset(input_dir, label_dir, batch_size):
+    # Get list of all input and label files
+    input_files = sorted(glob.glob(f"{input_dir}/*.npy"))
+    label_files = sorted(glob.glob(f"{label_dir}/*.npy"))
+    
+    # Create a dataset from file paths
+    dataset = tf.data.Dataset.from_tensor_slices((input_files, label_files))
+    
+    # Shuffle dataset (you can adjust the buffer size based on your total data)
+    dataset = dataset.shuffle(buffer_size=len(input_files))
+    
+    # Define a function to load and preprocess each pair of input/label npy files
+    def process_npy_file(input_file, label_file):
+        # Load the .npy files using numpy_function and cast them to float32
+        input_data = tf.numpy_function(func=lambda f: np.load(f).astype(np.float32), inp=[input_file], Tout=tf.float32)
+        label_data = tf.numpy_function(func=lambda f: np.load(f).astype(np.float32), inp=[label_file], Tout=tf.float32)
+        
+        # Remove any singleton dimensions (e.g., [1, 256, 256, 1] -> [256, 256, 1])
+        input_data = tf.squeeze(input_data, axis=0)  # Remove the unnecessary first dimension
+        label_data = tf.squeeze(label_data, axis=0)  # Remove the unnecessary first dimension
+        
+        # Explicitly set the shapes to ensure TensorFlow knows what to expect
+        input_data.set_shape([256, 256, 1])  # Assuming input is 256x256 grayscale images
+        label_data.set_shape([256, 256, 3])  # Assuming label is 256x256 with 3 classes
+        
+        return input_data, label_data
 
-        # Convert the labels list to a NumPy array
-        labels_array = np.asarray(labels)
-        # Reshape labels_array to (height, width, channels) for OpenCV
-        labels_array = np.transpose(labels_array, (1, 2, 0))
-        labels_array = cv2.resize(labels_array, (width, height), interpolation=cv2.INTER_LINEAR)
-
-        input_as_matrix = cv2.imread(original_file, cv2.IMREAD_GRAYSCALE) / 255.0  # Re-scale to (0, 1)
-        input_as_matrix = cv2.resize(input_as_matrix, (width, height), interpolation=cv2.INTER_LINEAR)
-        input_as_matrix = np.asarray(input_as_matrix)
-
-        input_as_matrix = np.asarray(input_as_matrix).reshape(256, 256, 1)
-        labels_array = np.asarray(labels_array).reshape(256, 256, 3)
-
-        yield input_as_matrix, labels_array  # Correct: Yield labels_array instead of labels
 
 
-# Create the dataset from a generator function
-dataset = tf.data.Dataset.from_generator(
-    lambda: preprocess_data(),  # Pass generator for filename, label pairs
-    output_signature=(
-        tf.TensorSpec(shape=(256,256,1), dtype=tf.float32),
-        tf.TensorSpec(shape=(256,256,3), dtype=tf.float32), 
-    )
-)
+    # Map the file-loading function to the dataset
+    dataset = dataset.map(process_npy_file, num_parallel_calls=tf.data.AUTOTUNE)
+    
+    # Batch the dataset
+    dataset = dataset.batch(batch_size)
+    
+    # Prefetch for optimal performance during training
+    dataset = dataset.prefetch(tf.data.AUTOTUNE)
+    
+    return dataset, len(input_files)
 
-# Batch and prefetch the dataset for better performance
+def split_dataset(dataset, dataset_size, split_ratio=0.2):
+    test_size = int(split_ratio * dataset_size)
+    train_size = dataset_size - test_size
+    
+    train_dataset = dataset.take(train_size)
+    test_dataset = dataset.skip(train_size).take(test_size)
+    
+    return train_dataset, test_dataset
+
+
+# Example usage:
+input_dir = './preprocessed_data2d/input_data'
+label_dir = './preprocessed_data2d/labels'
 batch_size = 32
-dataset = dataset.batch(batch_size)
-dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
 
-# Split into training and validation using sharding
-train_dataset = dataset.shard(num_shards=5, index=0)  # Approximate split
-val_dataset = dataset.shard(num_shards=5, index=1)
+# Load and split dataset
+dataset, size = get_dataset(input_dir, label_dir, batch_size)
+train_dataset, test_dataset = split_dataset(dataset, size)
 
-# Define and compile the U-Net model
+# Define and train U-Net model
 model = define_unet()
-
-# Train the model
-model.fit(train_dataset, validation_data=val_dataset, epochs=10)
-_, acc = model.evaluate(val_dataset, verbose=2)
+model = train_unet(train_dataset, test_dataset, model, batch_size=32)
+model.save("model.h5")

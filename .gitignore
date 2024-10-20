@@ -2,5 +2,6 @@
 /venv
 /__pycache__
 /generated_masks
+/preprocessed_data2d
 test_unet.py
 unet_model.h5

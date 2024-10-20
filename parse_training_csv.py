@@ -1,6 +1,7 @@
 import numpy as np
 import csv
 import os
+import cv2
 from pathlib import Path
 from typing import Dict
 
@@ -84,3 +85,29 @@ def parse_gi_tract_training_data(csv_file_path='./data/train.csv'):
 				all_segments = {}	# reset
 				i = 0
 			i += 1
+               
+def load_data(csv_file_path='./data/train.csv', width=256, height=256):
+    sample_counter = 1
+    # Parse the segmentation masks and original files
+    for segmentation_mask, original_file_path in parse_gi_tract_training_data(csv_file_path):
+        labels = []  # Initialize an empty list to hold labels
+        slice_id = ""
+        for (case_name, day, slice, class_name, matrix) in segmentation_mask.values():
+            labels.append(matrix)  # Append the matrix to the labels list
+            slice_id = f"{case_name}_{day}_{slice}"
+
+        # Convert the labels list to a NumPy array
+        labels_array = np.asarray(labels)
+        # Reshape labels_array to (height, width, channels) for OpenCV
+        labels_array = np.transpose(labels_array, (1, 2, 0))
+        labels_array = cv2.resize(labels_array, (width,height), interpolation=cv2.INTER_LINEAR)
+
+        input_as_matrix = cv2.imread(original_file_path, cv2.IMREAD_GRAYSCALE)/255.0 # re-scale to (0,1)
+        input_as_matrix = cv2.resize(input_as_matrix,(width,height), interpolation=cv2.INTER_LINEAR)
+        input_as_matrix = np.asarray(input_as_matrix)
+
+        if sample_counter % 500 == 0:
+            print(f"Loading Sample #{sample_counter}")
+        
+        sample_counter += 1
+        yield np.asarray(input_as_matrix), np.asarray(labels_array), slice_id
