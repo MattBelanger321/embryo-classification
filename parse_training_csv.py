@@ -61,6 +61,8 @@ def parse_gi_tract_training_data(csv_file_path='./data/train.csv'):
 		reader = csv.reader(csvfile)
 		next(reader)  # discard CSV header
         
+		i = 1;
+		all_segments = {}
 		for row in reader:
 			# Validate class
 			if row[1] not in {Classes.STOMACH.value, Classes.LARGE_BOWEL.value, Classes.SMALL_BOWEL.value}:
@@ -75,4 +77,10 @@ def parse_gi_tract_training_data(csv_file_path='./data/train.csv'):
 				rle_values = list(map(int, row[2].split(" ")))
       
 			mask = rle_to_matrix(width, height, rle_values)
-			yield tokens[0], tokens[1], tokens[2]+tokens[3], row[1], mask, file  # Yield case name, day, class, and mask
+
+			all_segments[row[1]] = (tokens[0], tokens[1], tokens[2]+tokens[3], row[1], mask)
+			if i % 3 == 0:
+				yield all_segments, file	# Yield case name, day, class, mask and file name for each of the 3 segments
+				all_segments = {}	# reset
+				i = 0
+			i += 1
