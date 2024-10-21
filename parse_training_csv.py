@@ -108,6 +108,7 @@ def load_data(csv_file_path='./data/train.csv', width=256, height=256):
 
         if sample_counter % 500 == 0:
             print(f"Loading Sample #{sample_counter}")
+            print(f"image data type: {input_as_matrix.dtype}")
         
         sample_counter += 1
         yield np.asarray(input_as_matrix), np.asarray(labels_array), slice_id

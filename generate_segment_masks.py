@@ -44,7 +44,7 @@ def save_segment_images(csv_file_path='./data/train.csv', output_directory='./ge
 		create_directory_structure(rgb_output_path)
 		# read training image as cv_mat
 		# multiplying by 5 to boost contrast
-		original_image = cv2.cvtColor(cv2.imread(original_file, cv2.IMREAD_GRAYSCALE) * 10, cv2.COLOR_GRAY2BGR)
+		original_image = cv2.cvtColor(cv2.imread(original_file, cv2.IMREAD_GRAYSCALE)*10, cv2.COLOR_GRAY2BGR)
 		# Note: OpenCV uses BGR format
 		rgb_segments = cv2.merge(segment_matricies)	# give each segment a colour code (B=large bowel, G=small, R=stomach)
 		mask = cv2.cvtColor(cv2.merge(segment_matricies), cv2.COLOR_BGR2GRAY) > 0

@@ -89,6 +89,61 @@ def train_unet(train, test, model, batch_size=32, epochs=10):
     
     return model
 
+# Function to check for NaN values in a batch of input/label pairs
+def contains_nan(batch):
+    inputs, labels = batch
+    # Check if any NaN values are present in the inputs or labels separately
+    nan_in_inputs = tf.reduce_any(tf.math.is_nan(inputs))
+    nan_in_labels = tf.reduce_any(tf.math.is_nan(labels))
+    return nan_in_inputs or nan_in_labels
+
+
+# Function to check the entire dataset for NaN values
+def dataset_has_nan(dataset):
+    for batch in dataset:
+        if contains_nan(batch):
+            print("NaN values found in the dataset!")
+            return True
+    print("No NaN values found in the dataset.")
+    return False
+
+
+def is_float32(dataset):
+    for batch in dataset:
+        # Assuming the batch is of the form (inputs, labels)
+        inputs, labels = batch
+        
+        # Check if dtype of inputs and labels is tf.float32
+        if inputs.dtype != tf.float32 or labels.dtype != tf.float32:
+            print("Data is not Float32")
+            return False
+            
+    print("Data is float32")
+    return True
+
+def is_normalized(dataset):
+    for batch in dataset:
+        # Assuming the dataset is of the form (inputs, labels)
+        inputs, labels = batch
+        
+        # Check if all values in inputs are within the range [0, 1]
+        if not tf.reduce_all((inputs >= 0) & (inputs <= 1)):
+            print("Inputs are not on [0,1]")
+            return False
+        
+        # Check if all values in labels are within the range [0, 1]
+        if not tf.reduce_all((labels >= 0) & (labels <= 1)):
+            print("Labels are not on [0,1]")
+            return False
+            
+    print("Data is normalized")
+    return True
+
+
+# This function will check if the dataset is fit for training
+def validate_dataset(dataset):
+    return not dataset_has_nan(dataset) and is_float32(dataset) and is_normalized(dataset)
+
 def get_dataset(input_dir, label_dir, batch_size):
     # Get list of all input and label files
     input_files = sorted(glob.glob(f"{input_dir}/*.npy"))
@@ -127,6 +182,9 @@ def get_dataset(input_dir, label_dir, batch_size):
     # Prefetch for optimal performance during training
     dataset = dataset.prefetch(tf.data.AUTOTUNE)
     
+    if not validate_dataset(dataset):
+        raise Exception("Data is INVALID")
+
     return dataset, len(input_files)
 
 def split_dataset(dataset, dataset_size, split_ratio=0.2):
@@ -137,25 +195,6 @@ def split_dataset(dataset, dataset_size, split_ratio=0.2):
     test_dataset = dataset.skip(train_size).take(test_size)
     
     return train_dataset, test_dataset
-
-# Function to check for NaN values in a batch of input/label pairs
-def contains_nan(batch):
-    inputs, labels = batch
-    # Check if any NaN values are present in the inputs or labels separately
-    nan_in_inputs = tf.reduce_any(tf.math.is_nan(inputs))
-    nan_in_labels = tf.reduce_any(tf.math.is_nan(labels))
-    return nan_in_inputs or nan_in_labels
-
-
-# Function to check the entire dataset for NaN values
-def check_dataset_for_nan(dataset):
-    for batch in dataset:
-        if contains_nan(batch):
-            print("NaN values found in the dataset!")
-            return True
-    print("No NaN values found in the dataset.")
-    return False
-
 
 # Example usage:
 input_dir = './preprocessed_data2d/input_data'
