@@ -81,10 +81,10 @@ def define_unet():
 def train_unet(train, test, model, batch_size=32, epochs=10):
     print("Fitting...")
     # Fit model and validate on test data after each epoch
-    history = model.fit(train, epochs=epochs, validation_data=test, verbose=2)
+    history = model.fit(train, epochs=epochs, validation_data=test, verbose=1)
     # Evaluate on the test dataset
     print("Evaluating..")
-    _, acc = model.evaluate(test, verbose=2)
+    _, acc = model.evaluate(test, verbose=1)
     print('Test Accuracy: %.3f' % (acc * 100.0))
     
     return model
