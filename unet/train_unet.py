@@ -9,7 +9,7 @@ import tensorflow as tf
 import glob
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, UpSampling2D, concatenate, Input
-from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.optimizers import SGD, Adam
 import parse_training_csv as parser
 
 from sklearn.model_selection import train_test_split
@@ -73,7 +73,7 @@ def define_unet():
 
     # Compile the model
     model = Model(inputs=[inputs], outputs=[outputs])
-    opt = SGD(learning_rate=0.01, momentum=0.9)
+    opt = Adam(learning_rate=0.001, clipnorm=1.0)  # Norm is clipped to 1.0
     model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
     
     return model
@@ -138,6 +138,24 @@ def split_dataset(dataset, dataset_size, split_ratio=0.2):
     
     return train_dataset, test_dataset
 
+# Function to check for NaN values in a batch of input/label pairs
+def contains_nan(batch):
+    inputs, labels = batch
+    # Check if any NaN values are present in the inputs or labels separately
+    nan_in_inputs = tf.reduce_any(tf.math.is_nan(inputs))
+    nan_in_labels = tf.reduce_any(tf.math.is_nan(labels))
+    return nan_in_inputs or nan_in_labels
+
+
+# Function to check the entire dataset for NaN values
+def check_dataset_for_nan(dataset):
+    for batch in dataset:
+        if contains_nan(batch):
+            print("NaN values found in the dataset!")
+            return True
+    print("No NaN values found in the dataset.")
+    return False
+
 
 # Example usage:
 input_dir = './preprocessed_data2d/input_data'
@@ -146,8 +164,8 @@ batch_size = 32
 
 # Load and split dataset
 dataset, size = get_dataset(input_dir, label_dir, batch_size)
-train_dataset, test_dataset = split_dataset(dataset, size)
 
+train_dataset, test_dataset = split_dataset(dataset, size)
 # Define and train U-Net model
 model = define_unet()
 model = train_unet(train_dataset, test_dataset, model, batch_size=32)
