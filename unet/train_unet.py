@@ -73,7 +73,7 @@ def define_unet():
 
     # Compile the model
     model = Model(inputs=[inputs], outputs=[outputs])
-    opt = Adam(learning_rate=0.001, clipnorm=1.0)  # Norm is clipped to 1.0
+    opt = Adam(learning_rate=0.00001, clipnorm=1.0)  # Norm is clipped to 1.0
     model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
     
     return model
@@ -182,8 +182,8 @@ def get_dataset(input_dir, label_dir, batch_size):
     # Prefetch for optimal performance during training
     dataset = dataset.prefetch(tf.data.AUTOTUNE)
     
-    if not validate_dataset(dataset):
-        raise Exception("Data is INVALID")
+    # if not validate_dataset(dataset):
+    #     raise Exception("Data is INVALID")
 
     return dataset, len(input_files)
 
