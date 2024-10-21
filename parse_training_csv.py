@@ -102,7 +102,7 @@ def load_data(csv_file_path='./data/train.csv', width=256, height=256):
         labels_array = np.transpose(labels_array, (1, 2, 0))
         labels_array = cv2.resize(labels_array, (width,height), interpolation=cv2.INTER_LINEAR)
 
-        input_as_matrix = cv2.imread(original_file_path, cv2.IMREAD_GRAYSCALE)/255.0 # re-scale to (0,1)
+        input_as_matrix = cv2.imread(original_file_path, cv2.IMREAD_ANYDEPTH)/65535.0 # re-scale to (0,1) (data is 16bit)
         input_as_matrix = cv2.resize(input_as_matrix,(width,height), interpolation=cv2.INTER_LINEAR)
         input_as_matrix = np.asarray(input_as_matrix)
 
