@@ -5,3 +5,4 @@
 /preprocessed_data2d
 test_unet.py
 unet_model.h5
+/running_data
