@@ -1,6 +1,6 @@
 /data
 /venv
-/__pycache__
+*__pycache__
 /generated_masks
 /preprocessed_data2d
 test_unet.py

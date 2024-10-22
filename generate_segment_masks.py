@@ -47,7 +47,7 @@ def save_segment_images(csv_file_path='./data/train.csv', output_directory='./ge
 		original_image = cv2.cvtColor(cv2.imread(original_file, cv2.IMREAD_GRAYSCALE)*10, cv2.COLOR_GRAY2BGR)
 		# Note: OpenCV uses BGR format
 		rgb_segments = cv2.merge(segment_matricies)	# give each segment a colour code (B=large bowel, G=small, R=stomach)
-		mask = cv2.cvtColor(cv2.merge(segment_matricies), cv2.COLOR_BGR2GRAY) > 0
+		mask = cv2.cvtColor(rgb_segments, cv2.COLOR_BGR2GRAY) > 0
 		# Superimpose the RGB image only on non-black pixels
 		# Use np.where to blend the images based on the mask
 		result_image = np.where(mask[:, :, None], rgb_segments, original_image)
