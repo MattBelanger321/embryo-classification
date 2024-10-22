@@ -14,6 +14,8 @@ import parse_training_csv as parser
 
 from sklearn.model_selection import train_test_split
 
+import FlushableStream
+
 import numpy as np
 
 def define_unet():
@@ -195,6 +197,10 @@ def split_dataset(dataset, dataset_size, split_ratio=0.2):
     test_dataset = dataset.skip(train_size).take(test_size)
     
     return train_dataset, test_dataset
+
+# Usage
+flushable_stream = FlushableStream.FlushableStream("output.log", flush_interval=2)  # Flush every 2 seconds
+sys.stdout = flushable_stream  # Redirect stdout
 
 # Example usage:
 input_dir = './preprocessed_data2d/input_data'
