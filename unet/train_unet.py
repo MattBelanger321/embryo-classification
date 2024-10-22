@@ -1,3 +1,4 @@
+from random import shuffle
 import sys
 import os
 
@@ -7,6 +8,7 @@ sys.path.insert(0, parent_dir)
 
 import tensorflow as tf
 import glob
+import random
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, UpSampling2D, concatenate, Input
 from tensorflow.keras.optimizers import SGD, Adam
@@ -151,14 +153,21 @@ def validate_dataset(dataset):
 
 def get_dataset(input_dir, label_dir, batch_size):
     # Get list of all input and label files
-    input_files = sorted(glob.glob(f"{input_dir}/*.npy"))
-    label_files = sorted(glob.glob(f"{label_dir}/*.npy"))
-    
+    input_filenames = glob.glob(f"{input_dir}/*.npy")
+    label_filenames = glob.glob(f"{label_dir}/*.npy")
+
+    # Pair the filenames together
+    paired_filenames = list(zip(input_filenames, label_filenames))
+
+    # Shuffle the pairs together
+    random.seed(42)
+    random.shuffle(paired_filenames)
+
+    # Unzip the shuffled pairs back into separate lists
+    input_filenames, label_filenames = zip(*paired_filenames)
+
     # Create a dataset from file paths
-    dataset = tf.data.Dataset.from_tensor_slices((input_files, label_files))
-    
-    # Shuffle dataset (you can adjust the buffer size based on your total data)
-    dataset = dataset.shuffle(buffer_size=len(input_files), seed=5)
+    dataset = tf.data.Dataset.from_tensor_slices((list(input_filenames), list(label_filenames)))
     
     # Define a function to load and preprocess each pair of input/label npy files
     def process_npy_file(input_file, label_file):
@@ -176,6 +185,9 @@ def get_dataset(input_dir, label_dir, batch_size):
 
         return input_data, label_data
 
+    # Shuffle dataset (you can adjust the buffer size based on your total data)
+    # dataset = dataset.shuffle(buffer_size=len(input_filenames), seed=10)
+
     # Map the file-loading function to the dataset
     dataset_files = dataset.map(process_npy_file, num_parallel_calls=tf.data.AUTOTUNE)
     
@@ -192,7 +204,7 @@ def get_dataset(input_dir, label_dir, batch_size):
     # if not validate_dataset(dataset):
     #     raise Exception("Data is INVALID")
 
-    return dataset, len(input_files)
+    return dataset, len(input_filenames)
 
 def split_dataset(dataset, dataset_size, split_ratio=0.2):
     test_size = int(split_ratio * dataset_size)
