@@ -11,12 +11,14 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, UpSampling2D, concatenate, Input
 from tensorflow.keras.optimizers import SGD, Adam
 import parse_training_csv as parser
+from batch_generator import UNetBatchGenerator as batch_generator
 
 from sklearn.model_selection import train_test_split
 
 import FlushableStream
 
 import numpy as np
+import cv2
 
 def define_unet():
     inputs = Input(shape=(256, 256, 1))  # Adjust input shape as needed
@@ -83,7 +85,10 @@ def define_unet():
 def train_unet(train, test, model, batch_size=32, epochs=10):
     print("Fitting...")
     # Fit model and validate on test data after each epoch
-    history = model.fit(train, epochs=epochs, validation_data=test, verbose=1)
+
+    gen = batch_generator(train, batch_size) # the training data generator
+
+    history = model.fit(gen, epochs=epochs, validation_data=test, verbose=1)
     # Evaluate on the test dataset
     print("Evaluating..")
     _, acc = model.evaluate(test, verbose=1)
@@ -155,7 +160,7 @@ def get_dataset(input_dir, label_dir, batch_size):
     dataset = tf.data.Dataset.from_tensor_slices((input_files, label_files))
     
     # Shuffle dataset (you can adjust the buffer size based on your total data)
-    dataset = dataset.shuffle(buffer_size=len(input_files))
+    dataset = dataset.shuffle(buffer_size=len(input_files), seed=5)
     
     # Define a function to load and preprocess each pair of input/label npy files
     def process_npy_file(input_file, label_file):
@@ -170,14 +175,16 @@ def get_dataset(input_dir, label_dir, batch_size):
         # Explicitly set the shapes to ensure TensorFlow knows what to expect
         input_data.set_shape([256, 256, 1])  # Assuming input is 256x256 grayscale images
         label_data.set_shape([256, 256, 3])  # Assuming label is 256x256 with 3 classes
-        
+
         return input_data, label_data
 
-
-
     # Map the file-loading function to the dataset
-    dataset = dataset.map(process_npy_file, num_parallel_calls=tf.data.AUTOTUNE)
+    dataset_files = dataset.map(process_npy_file, num_parallel_calls=tf.data.AUTOTUNE)
     
+    # add filenames for the generator for debugging
+    # (file, filename)
+    dataset = tf.data.Dataset.zip((dataset_files, dataset))
+
     # Batch the dataset
     dataset = dataset.batch(batch_size)
     
