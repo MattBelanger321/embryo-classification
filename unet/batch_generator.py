@@ -8,6 +8,11 @@ def create_directory_structure(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
+# Function to create directory structure
+def create_directory_structure(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
+
 class UNetBatchGenerator(tf.keras.utils.Sequence):
     def __init__(self, dataset, batch_size):
         self.dataset = dataset
@@ -27,6 +32,13 @@ class UNetBatchGenerator(tf.keras.utils.Sequence):
         print(f"\nInspecting batch {idx}:\n")
         # Separate inputs and labels
         (input_data, output_data), (input_files, output_files) = batch
+        print(f"Files: {input_files}:")
+
+        for i in range(len(input_files)):
+            filename =  os.path.basename(input_files[i].numpy().decode("utf-8"))
+            create_directory_structure(f"./running_data/batch{idx}/")
+            cv2.imwrite(f"./running_data/batch{idx}/{filename}_input.png", input_data[i].numpy() * 255)
+            cv2.imwrite(f"./running_data/batch{idx}/{filename}_labels.png", output_data[i].numpy() * 255)
 
         # print(f"{input_files.numpy().decode("utf-8")=}")
         #print(f"{input_data.numpy().min() = }, {input_data.numpy().max() = }, {input_data.numpy().shape = }, {input_data.numpy().dtype = } -  {output_data.numpy().min() = }, {output_data.numpy().max() = }, {output_data.numpy().shape = }, {output_data.numpy().dtype = }\n")
