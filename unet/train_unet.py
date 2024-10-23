@@ -1,3 +1,4 @@
+from random import shuffle
 import sys
 import os
 
@@ -7,14 +8,19 @@ sys.path.insert(0, parent_dir)
 
 import tensorflow as tf
 import glob
+import random
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, UpSampling2D, concatenate, Input
-from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.optimizers import SGD, Adam
 import parse_training_csv as parser
+from batch_generator import UNetBatchGenerator as batch_generator
 
 from sklearn.model_selection import train_test_split
 
+import FlushableStream
+
 import numpy as np
+import cv2
 
 def define_unet():
     inputs = Input(shape=(256, 256, 1))  # Adjust input shape as needed
@@ -69,36 +75,101 @@ def define_unet():
     c9 = Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(u9)
     c9 = Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(c9)
 
-    outputs = Conv2D(3, (1, 1), activation='softmax')(c9)  # Use softmax for multi-class segmentation
+    outputs = Conv2D(3, (1, 1), activation='sigmoid')(c9)  # Use softmax for multi-class segmentation
 
     # Compile the model
     model = Model(inputs=[inputs], outputs=[outputs])
-    opt = SGD(learning_rate=0.01, momentum=0.9)
-    model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
+    opt = Adam( clipnorm=1.0)  # Norm is clipped to 1.0
+    model.compile(optimizer=opt, loss='bce', metrics=['accuracy'])
     
     return model
 
-def train_unet(train, test, model, batch_size=32, epochs=10):
+def train_unet(train, test, model, batch_size=32, epochs=10, steps_per_epoch=1203):
     print("Fitting...")
     # Fit model and validate on test data after each epoch
-    history = model.fit(train, epochs=epochs, validation_data=test, verbose=2)
+
+    gen = batch_generator(train, batch_size) # the training data generator
+
+    history = model.fit(gen, epochs=epochs, validation_data=test, verbose=1)
     # Evaluate on the test dataset
     print("Evaluating..")
-    _, acc = model.evaluate(test, verbose=2)
+    _, acc = model.evaluate(test, verbose=1)
     print('Test Accuracy: %.3f' % (acc * 100.0))
     
     return model
 
+# Function to check for NaN values in a batch of input/label pairs
+def contains_nan(batch):
+    inputs, labels = batch
+    # Check if any NaN values are present in the inputs or labels separately
+    nan_in_inputs = tf.reduce_any(tf.math.is_nan(inputs))
+    nan_in_labels = tf.reduce_any(tf.math.is_nan(labels))
+    return nan_in_inputs or nan_in_labels
+
+
+# Function to check the entire dataset for NaN values
+def dataset_has_nan(dataset):
+    for batch in dataset:
+        if contains_nan(batch):
+            print("NaN values found in the dataset!")
+            return True
+    print("No NaN values found in the dataset.")
+    return False
+
+
+def is_float32(dataset):
+    for batch in dataset:
+        # Assuming the batch is of the form (inputs, labels)
+        inputs, labels = batch
+        
+        # Check if dtype of inputs and labels is tf.float32
+        if inputs.dtype != tf.float32 or labels.dtype != tf.float32:
+            print("Data is not Float32")
+            return False
+            
+    print("Data is float32")
+    return True
+
+def is_normalized(dataset):
+    for batch in dataset:
+        # Assuming the dataset is of the form (inputs, labels)
+        inputs, labels = batch
+        
+        # Check if all values in inputs are within the range [0, 1]
+        if not tf.reduce_all((inputs >= 0) & (inputs <= 1)):
+            print("Inputs are not on [0,1]")
+            return False
+        
+        # Check if all values in labels are within the range [0, 1]
+        if not tf.reduce_all((labels >= 0) & (labels <= 1)):
+            print("Labels are not on [0,1]")
+            return False
+            
+    print("Data is normalized")
+    return True
+
+
+# This function will check if the dataset is fit for training
+def validate_dataset(dataset):
+    return not dataset_has_nan(dataset) and is_float32(dataset) and is_normalized(dataset)
+
 def get_dataset(input_dir, label_dir, batch_size):
     # Get list of all input and label files
-    input_files = sorted(glob.glob(f"{input_dir}/*.npy"))
-    label_files = sorted(glob.glob(f"{label_dir}/*.npy"))
-    
+    input_filenames = glob.glob(f"{input_dir}/*.npy")
+    label_filenames = glob.glob(f"{label_dir}/*.npy")
+
+    # Pair the filenames together
+    paired_filenames = list(zip(input_filenames, label_filenames))
+
+    # Shuffle the pairs together
+    random.seed(42)
+    random.shuffle(paired_filenames)
+
+    # Unzip the shuffled pairs back into separate lists
+    input_filenames, label_filenames = zip(*paired_filenames)
+
     # Create a dataset from file paths
-    dataset = tf.data.Dataset.from_tensor_slices((input_files, label_files))
-    
-    # Shuffle dataset (you can adjust the buffer size based on your total data)
-    dataset = dataset.shuffle(buffer_size=len(input_files))
+    dataset = tf.data.Dataset.from_tensor_slices((list(input_filenames), list(label_filenames)))
     
     # Define a function to load and preprocess each pair of input/label npy files
     def process_npy_file(input_file, label_file):
@@ -113,21 +184,29 @@ def get_dataset(input_dir, label_dir, batch_size):
         # Explicitly set the shapes to ensure TensorFlow knows what to expect
         input_data.set_shape([256, 256, 1])  # Assuming input is 256x256 grayscale images
         label_data.set_shape([256, 256, 3])  # Assuming label is 256x256 with 3 classes
-        
+
         return input_data, label_data
 
-
+    # Shuffle dataset (you can adjust the buffer size based on your total data)
+    # dataset = dataset.shuffle(buffer_size=len(input_filenames), seed=10)
 
     # Map the file-loading function to the dataset
-    dataset = dataset.map(process_npy_file, num_parallel_calls=tf.data.AUTOTUNE)
+    dataset_files = dataset.map(process_npy_file, num_parallel_calls=tf.data.AUTOTUNE)
     
+    # add filenames for the generator for debugging
+    # (file, filename)
+    dataset = tf.data.Dataset.zip((dataset_files, dataset))
+
     # Batch the dataset
     dataset = dataset.batch(batch_size)
     
     # Prefetch for optimal performance during training
     dataset = dataset.prefetch(tf.data.AUTOTUNE)
     
-    return dataset, len(input_files)
+    # if not validate_dataset(dataset):
+    #     raise Exception("Data is INVALID")
+
+    return dataset, len(input_filenames)
 
 def split_dataset(dataset, dataset_size, split_ratio=0.2):
     test_size = int(split_ratio * dataset_size)
@@ -138,6 +217,9 @@ def split_dataset(dataset, dataset_size, split_ratio=0.2):
     
     return train_dataset, test_dataset
 
+# Usage
+flushable_stream = FlushableStream.FlushableStream("output.log", flush_interval=2)  # Flush every 2 seconds
+sys.stdout = flushable_stream  # Redirect stdout
 
 # Example usage:
 input_dir = './preprocessed_data2d/input_data'
@@ -146,8 +228,8 @@ batch_size = 32
 
 # Load and split dataset
 dataset, size = get_dataset(input_dir, label_dir, batch_size)
-train_dataset, test_dataset = split_dataset(dataset, size)
 
+train_dataset, test_dataset = split_dataset(dataset, size)
 # Define and train U-Net model
 model = define_unet()
 model = train_unet(train_dataset, test_dataset, model, batch_size=32)
