@@ -75,16 +75,16 @@ def define_unet():
     c9 = Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(u9)
     c9 = Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(c9)
 
-    outputs = Conv2D(3, (1, 1), activation='softmax')(c9)  # Use softmax for multi-class segmentation
+    outputs = Conv2D(3, (1, 1), activation='sigmoid')(c9)  # Use softmax for multi-class segmentation
 
     # Compile the model
     model = Model(inputs=[inputs], outputs=[outputs])
-    opt = Adam(learning_rate=0.00001, clipnorm=1.0)  # Norm is clipped to 1.0
-    model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
+    opt = Adam( clipnorm=1.0)  # Norm is clipped to 1.0
+    model.compile(optimizer=opt, loss='bce', metrics=['accuracy'])
     
     return model
 
-def train_unet(train, test, model, batch_size=32, epochs=10):
+def train_unet(train, test, model, batch_size=32, epochs=10, steps_per_epoch=1203):
     print("Fitting...")
     # Fit model and validate on test data after each epoch
 
