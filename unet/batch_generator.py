@@ -20,7 +20,17 @@ class UNetBatchGenerator(tf.keras.utils.Sequence):
         return self.batch_count
 
     def __getitem__(self, idx):
-        batch = next(self.iterator)
+        try:
+            # TODO: investiagte dataset.skip function to simulate random access
+            batch = next(self.iterator)
+        except StopIteration:
+            # Tensorflow does pre-fetches at the beggining of datasets
+            # we need to use iterators because we are using a take dataset
+            # tensorflow will not reset our iterator
+            # this means we are gaurenteed to run out of bounds
+            # so we need to loop back around when we do
+            self.iterator = iter(self.dataset)
+            batch = next(self.iterator)
 
         # Inspect the batch here
         print(f"\nInspecting batch {idx}:\n")
@@ -38,6 +48,7 @@ class UNetBatchGenerator(tf.keras.utils.Sequence):
         return input_data, output_data
     
     def on_epoch_end(self):
+        print("ENDING")
         """Resets the iterator at the end of each epoch."""
         self.iterator = iter(self.dataset)
 
