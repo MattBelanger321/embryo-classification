@@ -84,18 +84,19 @@ def define_unet():
     
     return model
 
-def train_unet(train, test, model, batch_size=32, epochs=10, steps_per_epoch=1203):
+def train_unet(train, test, model, batch_size=32, epochs=1, spe=2, vsteps=3):
     print("Fitting...")
     # Fit model and validate on test data after each epoch
 
-    gen = batch_generator(train, batch_size) # the training data generator
+    train_gen = batch_generator(train, batch_size) # the training data generator
+    test_gen =  batch_generator(test, batch_size) # the training data generator
 
-    history = model.fit(gen, epochs=epochs, validation_data=test, verbose=1)
+    history = model.fit(train_gen, epochs=epochs, validation_data=test_gen, verbose=1, steps_per_epoch=spe, validation_steps=vsteps)
     # Evaluate on the test dataset
     print("Evaluating..")
-    _, acc = model.evaluate(test, verbose=1)
+    _, acc = model.evaluate(test_gen, verbose=1)
     print('Test Accuracy: %.3f' % (acc * 100.0))
-    
+     
     return model
 
 # Function to check for NaN values in a batch of input/label pairs
@@ -199,9 +200,6 @@ def get_dataset(input_dir, label_dir, batch_size):
 
     # Batch the dataset
     dataset = dataset.batch(batch_size)
-    
-    # Prefetch for optimal performance during training
-    dataset = dataset.prefetch(tf.data.AUTOTUNE)
     
     # if not validate_dataset(dataset):
     #     raise Exception("Data is INVALID")
