@@ -1,3 +1,4 @@
+import math
 from random import shuffle
 import sys
 import os
@@ -84,12 +85,18 @@ def define_unet():
     
     return model
 
-def train_unet(train, test, model, batch_size=32, epochs=1, spe=2, vsteps=3):
+def train_unet(train, test, model, batch_size=32, epochs=1, spe=2, vsteps=1):
     print("Fitting...")
     # Fit model and validate on test data after each epoch
 
     train_gen = batch_generator(train, batch_size) # the training data generator
     test_gen =  batch_generator(test, batch_size) # the training data generator
+
+    print(f"{train}")
+    print(f"{test}")
+    print(f"{test_gen.__len__()}")
+    
+
 
     history = model.fit(train_gen, epochs=epochs, validation_data=test_gen, verbose=1, steps_per_epoch=spe, validation_steps=vsteps)
     # Evaluate on the test dataset
@@ -204,16 +211,29 @@ def get_dataset(input_dir, label_dir, batch_size):
     # if not validate_dataset(dataset):
     #     raise Exception("Data is INVALID")
 
-    return dataset, len(input_filenames)
+    return dataset, len(input_filenames) // batch_size
+
+import tensorflow as tf
 
 def split_dataset(dataset, dataset_size, split_ratio=0.2):
+    # Ensure the split ratio is a float between 0 and 1
+    if not (0 <= split_ratio <= 1):
+        raise ValueError("split_ratio must be between 0 and 1.")
+    
+    # Calculate sizes for train and test datasets
     test_size = int(split_ratio * dataset_size)
     train_size = dataset_size - test_size
-    
+
+    # Handle the case where the dataset is too small
+    if train_size <= 0 or test_size <= 0:
+        raise ValueError("Dataset size is too small for the specified split ratio.")
+
+    # Create train and test datasets
     train_dataset = dataset.take(train_size)
     test_dataset = dataset.skip(train_size).take(test_size)
     
     return train_dataset, test_dataset
+
 
 # Usage
 flushable_stream = FlushableStream.FlushableStream("output.log", flush_interval=2)  # Flush every 2 seconds
@@ -225,9 +245,9 @@ label_dir = './preprocessed_data2d/labels'
 batch_size = 32
 
 # Load and split dataset
-dataset, size = get_dataset(input_dir, label_dir, batch_size)
+dataset, batch_count = get_dataset(input_dir, label_dir, batch_size)
 
-train_dataset, test_dataset = split_dataset(dataset, size)
+train_dataset, test_dataset = split_dataset(dataset, batch_count)
 # Define and train U-Net model
 model = define_unet()
 model = train_unet(train_dataset, test_dataset, model, batch_size=32)

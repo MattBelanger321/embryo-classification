@@ -12,12 +12,12 @@ class UNetBatchGenerator(tf.keras.utils.Sequence):
     def __init__(self, dataset, batch_size):
         self.dataset = dataset
         self.batch_size = batch_size
-        self.dataset_size = len(dataset)
+        self.batch_count = len(dataset)
         self.iterator = iter(self.dataset)  # Create an iterator
 
     def __len__(self):
         # Calculate the number of batches
-        return np.ceil(self.dataset_size / self.batch_size).astype(int)
+        return self.batch_count
 
     def __getitem__(self, idx):
         batch = next(self.iterator)
@@ -28,22 +28,12 @@ class UNetBatchGenerator(tf.keras.utils.Sequence):
         # Separate inputs and labels
         (input_data, output_data), (input_files, output_files) = batch
 
-        # If you're returning filenames as part of the dataset, adjust as follows:
-        # input_data, output_data, input_files = batch
-
-        # Save the batch to disk
-        for i in range(len(input_data)):
-            # Assuming input_files contains file names
-            filename = f"image_{i}"  # You could get the actual file name if included in the dataset
+        # log data as sent to the model during training
+        for i in range(len(input_files)):
+            filename =  os.path.basename(input_files[i].numpy().decode("utf-8"))
             create_directory_structure(f"./running_data/batch{idx}/")
-            
-            # Save input and label as images
-            input_image = (input_data[i].numpy() * 255).astype(np.uint8)
-            label_image = (output_data[i].numpy() * 255).astype(np.uint8)
-            
-            # Save images
-            cv2.imwrite(f"./running_data/batch{idx}/{filename}_input.png", input_image)
-            cv2.imwrite(f"./running_data/batch{idx}/{filename}_label.png", label_image)
+            cv2.imwrite(f"./running_data/batch{idx}/{filename}_input.png", input_data[i].numpy() * 255)
+            cv2.imwrite(f"./running_data/batch{idx}/{filename}_labels.png", output_data[i].numpy() * 255)
         
         return input_data, output_data
     
