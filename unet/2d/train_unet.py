@@ -4,7 +4,7 @@ import sys
 import os
 
 # Get the parent directory and add it to sys.path
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, parent_dir)
 
 import tensorflow as tf
@@ -12,6 +12,7 @@ import glob
 import random
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, UpSampling2D, concatenate, Input
+from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.optimizers import SGD, Adam
 import parse_training_csv as parser
 from batch_generator import UNetBatchGenerator as batch_generator
@@ -85,7 +86,7 @@ def define_unet():
     
     return model
 
-def train_unet(train, test, model, batch_size=32, epochs=1, spe=2, vsteps=1):
+def train_unet(train, test, model, batch_size=32, epochs=2, spe=2, vsteps=1, save_path="model_epoch_{epoch:02d}.keras"):
     print("Fitting...")
     # Fit model and validate on test data after each epoch
 
@@ -95,11 +96,26 @@ def train_unet(train, test, model, batch_size=32, epochs=1, spe=2, vsteps=1):
     print(f"{train}")
     print(f"{test}")
     print(f"{test_gen.__len__()}")
-    
 
+    # Define the ModelCheckpoint callback
+    checkpoint_callback = ModelCheckpoint(
+        filepath=save_path,   # Path for saving model; {epoch:02d} allows you to save by epoch number
+        save_weights_only=False,  # Set to True if you want to save only weights
+        save_freq='epoch',        # Save after each epoch
+        verbose=1
+    )
 
-    history = model.fit(train_gen, epochs=epochs, validation_data=test_gen, verbose=1, steps_per_epoch=spe, validation_steps=vsteps)
-    # Evaluate on the test dataset
+    # Pass the checkpoint callback to the fit function
+    history = model.fit(
+        train_gen,
+        epochs=epochs,
+        validation_data=test_gen,
+        verbose=1,
+        steps_per_epoch=spe,
+        validation_steps=vsteps,
+        callbacks=[checkpoint_callback]
+    )
+
     print("Evaluating..")
     _, acc = model.evaluate(test_gen, verbose=1)
     print('Test Accuracy: %.3f' % (acc * 100.0))
@@ -212,8 +228,6 @@ def get_dataset(input_dir, label_dir, batch_size):
     #     raise Exception("Data is INVALID")
 
     return dataset, len(input_filenames) // batch_size
-
-import tensorflow as tf
 
 def split_dataset(dataset, dataset_size, split_ratio=0.2):
     # Ensure the split ratio is a float between 0 and 1
