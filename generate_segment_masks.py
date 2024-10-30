@@ -54,7 +54,7 @@ def save_segment_images(csv_file_path='./data/train.csv', output_directory='./ge
 		cv2.imwrite(rgb_filepath, result_image)  
 		cv2.imwrite(os.path.join(case_output_path,f"{case_name}_{day}_{slice}_original.png" ), original_image)  # Copy file preserving metadata
 
-def save_preprocesses_training_data(csv_file_path='./data/train.csv', output_directory='./preprocessed_data2d'):
+def save_preprocesses_training_data2d(csv_file_path='./data/train.csv', output_directory='./preprocessed_data2d'):
 	input_dir = f"{output_directory}/input_data"
 	label_dir = f"{output_directory}/labels"
 	create_directory_structure(input_dir)
@@ -67,7 +67,47 @@ def save_preprocesses_training_data(csv_file_path='./data/train.csv', output_dir
 		np.save(f"{label_dir}/{i}_{sample_id}.npy", labels.astype(np.float32))
 		i += 1
 
+def save_preprocesses_training_data3d(csv_file_path='./data/train.csv', output_directory='./preprocessed_data3d'):
+	input_dir = f"{output_directory}/input_data"
+	label_dir = f"{output_directory}/labels"
+	create_directory_structure(input_dir)
+	create_directory_structure(label_dir)
+	i = 1	# using a numeric_prefix for simplicity
+	for input, labels, sample_id in parser.load_data3d(csv_file_path):
+		input = np.asarray(input).reshape(-1,256,256,1)
+		labels = np.asarray(labels).reshape(-1,256,256,3)
+		np.save(f"{input_dir}/{i}_{sample_id}.npy", input.astype(np.float32))
+		np.save(f"{label_dir}/{i}_{sample_id}.npy", labels.astype(np.float32))
+		i += 1
+
+
+def display_labels_3d(csv_file_path='./data/train.csv', width=256, height=256, num_slices=144):
+    for volume_images, volume_labels, slice_id in parser.load_data3d(csv_file_path, width, height, num_slices):
+        print(f"Displaying volume for ID: {slice_id}")
+        
+        # Iterate through each slice in the volume
+        for i in range(num_slices):
+            # Retrieve the label for the current slice
+            label_slice = volume_labels[i]  # Shape (height, width, channels)
+
+            # Convert the label to a displayable RGB image
+            if label_slice.shape[-1] == 1:  # If single-channel, convert to 3 channels
+                label_rgb = cv2.cvtColor(label_slice, cv2.COLOR_GRAY2RGB)
+            else:
+                label_rgb = cv2.normalize(label_slice, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+
+            # Display the label slice as an RGB image
+            cv2.imshow(f"Label Slice {i+1} of {slice_id}", label_rgb)
+            cv2.waitKey(100)  # Display for 100 ms
+            
+            # Close all windows after each slice display
+            if cv2.waitKey(0) & 0xFF == ord('q'):
+                # Close all windows after displaying the entire volume
+                cv2.destroyAllWindows()
+                break
+
 # Main application code
 if __name__ == "__main__":
-	save_segment_images()  # This will now save images one case at a time
-	save_preprocesses_training_data()
+	# save_segment_images()  # This will now save images one case at a time
+	# save_preprocesses_training_data2d()
+	save_preprocesses_training_data3d()
