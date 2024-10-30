@@ -108,6 +108,6 @@ def display_labels_3d(csv_file_path='./data/train.csv', width=256, height=256, n
 
 # Main application code
 if __name__ == "__main__":
-	# save_segment_images()  # This will now save images one case at a time
-	# save_preprocesses_training_data2d()
+	save_segment_images()  # This will now save images one case at a time
+	save_preprocesses_training_data2d()
 	save_preprocesses_training_data3d()
