@@ -1,9 +1,10 @@
+import math
 from random import shuffle
 import sys
 import os
 
 # Get the parent directory and add it to sys.path
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, parent_dir)
 
 import tensorflow as tf
@@ -11,6 +12,7 @@ import glob
 import random
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, UpSampling2D, concatenate, Input
+from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.optimizers import SGD, Adam
 import parse_training_csv as parser
 from batch_generator import UNetBatchGenerator as batch_generator
@@ -84,18 +86,40 @@ def define_unet():
     
     return model
 
-def train_unet(train, test, model, batch_size=32, epochs=10, steps_per_epoch=1203):
+def train_unet(train, test, model, batch_size=32, epochs=2, spe=2, vsteps=1, save_path="model_epoch_{epoch:02d}.keras"):
     print("Fitting...")
     # Fit model and validate on test data after each epoch
 
-    gen = batch_generator(train, batch_size) # the training data generator
+    train_gen = batch_generator(train, batch_size) # the training data generator
+    test_gen =  batch_generator(test, batch_size) # the training data generator
 
-    history = model.fit(gen, epochs=epochs, validation_data=test, verbose=1)
-    # Evaluate on the test dataset
+    print(f"{train}")
+    print(f"{test}")
+    print(f"{test_gen.__len__()}")
+
+    # Define the ModelCheckpoint callback
+    checkpoint_callback = ModelCheckpoint(
+        filepath=save_path,   # Path for saving model; {epoch:02d} allows you to save by epoch number
+        save_weights_only=False,  # Set to True if you want to save only weights
+        save_freq='epoch',        # Save after each epoch
+        verbose=1
+    )
+
+    # Pass the checkpoint callback to the fit function
+    history = model.fit(
+        train_gen,
+        epochs=epochs,
+        validation_data=test_gen,
+        verbose=1,
+        steps_per_epoch=spe,
+        validation_steps=vsteps,
+        callbacks=[checkpoint_callback]
+    )
+
     print("Evaluating..")
-    _, acc = model.evaluate(test, verbose=1)
+    _, acc = model.evaluate(test_gen, verbose=1)
     print('Test Accuracy: %.3f' % (acc * 100.0))
-    
+     
     return model
 
 # Function to check for NaN values in a batch of input/label pairs
@@ -200,22 +224,30 @@ def get_dataset(input_dir, label_dir, batch_size):
     # Batch the dataset
     dataset = dataset.batch(batch_size)
     
-    # Prefetch for optimal performance during training
-    dataset = dataset.prefetch(tf.data.AUTOTUNE)
-    
     # if not validate_dataset(dataset):
     #     raise Exception("Data is INVALID")
 
-    return dataset, len(input_filenames)
+    return dataset, len(input_filenames) // batch_size
 
 def split_dataset(dataset, dataset_size, split_ratio=0.2):
+    # Ensure the split ratio is a float between 0 and 1
+    if not (0 <= split_ratio <= 1):
+        raise ValueError("split_ratio must be between 0 and 1.")
+    
+    # Calculate sizes for train and test datasets
     test_size = int(split_ratio * dataset_size)
     train_size = dataset_size - test_size
-    
+
+    # Handle the case where the dataset is too small
+    if train_size <= 0 or test_size <= 0:
+        raise ValueError("Dataset size is too small for the specified split ratio.")
+
+    # Create train and test datasets
     train_dataset = dataset.take(train_size)
     test_dataset = dataset.skip(train_size).take(test_size)
     
     return train_dataset, test_dataset
+
 
 # Usage
 flushable_stream = FlushableStream.FlushableStream("output.log", flush_interval=2)  # Flush every 2 seconds
@@ -227,9 +259,9 @@ label_dir = './preprocessed_data2d/labels'
 batch_size = 32
 
 # Load and split dataset
-dataset, size = get_dataset(input_dir, label_dir, batch_size)
+dataset, batch_count = get_dataset(input_dir, label_dir, batch_size)
 
-train_dataset, test_dataset = split_dataset(dataset, size)
+train_dataset, test_dataset = split_dataset(dataset, batch_count)
 # Define and train U-Net model
 model = define_unet()
 model = train_unet(train_dataset, test_dataset, model, batch_size=32)
