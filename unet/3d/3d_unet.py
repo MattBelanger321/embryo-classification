@@ -5,8 +5,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 
 def define_unet_3d():
-    inputs = Input(shape=(144, 256, 256, 1))  # Adjust depth (16) as needed
-
+    inputs = Input(shape=(5, 256, 256, 1))
     # Encoder (downsampling)
     c1 = Conv3D(64, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(inputs)
     c1 = Conv3D(64, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(c1)
