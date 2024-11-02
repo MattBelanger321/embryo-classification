@@ -74,69 +74,44 @@ def save_preprocessed_training_data2d(csv_file_path='./data/train.csv', output_d
 		np.save(f"{label_dir}/{i}_{sample_id}.npy", labels.astype(np.float32))
 		i += 1
 
-def load_and_test_3d(model, csv_file_path='./data/train.csv', output_directory='./preprocessed_data3d', width=128, height=128, depth=5, stride=3):
-    sample_counter = 1
-    input = []  # List to hold input patches
-    preprocessed_labels = []  # List to hold label patches
-    ind = 0  # Index for a specific patch if needed
-    use_sample = False  # Flag to select a specific test sample
-
-    logging.info("Starting 3D data loading and testing")
-
-    for segmentation_mask, original_file in parser.parse_gi_tract_training_data(csv_file_path):
-        labels = []
-
-        for (case_name, day, slice_idx, class_name, matrix) in segmentation_mask.values():
-            labels.append(matrix)
-            if case_name == "case30" and day == "day0" and slice_idx == "slice0097":
-                use_sample = True
-
-        labels_array = np.asarray(labels).reshape(-1, width, height, 3)
-        input_as_matrix = np.stack(
-            [cv2.imread(f, cv2.IMREAD_GRAYSCALE) / 255.0 for f in original_file], axis=0
-        ).reshape(-1, width, height, 1)
-
-        num_patches = (input_as_matrix.shape[0] - depth) // stride + 1
+def save_preprocessed_training_data3d(csv_file_path='./data/train.csv', output_directory='./preprocessed_data3d', depth=5, stride=3):
+    input_dir = f"{output_directory}/input_data"
+    label_dir = f"{output_directory}/labels"
+    i = 1  # using a numeric_prefix for simplicity
+    logging.info("Starting 3D data preprocessing")
+    logging.info(f"CSV File Path: {csv_file_path}")
+    logging.info(f"Output Directory: {output_directory}")
+    logging.info(f"Patch Depth: {depth}, Stride: {stride}")
+    for input, labels, sample_id in parser.load_data3d(csv_file_path, width=128, height=128):
+        sample_input_dir = os.path.join(input_dir,f"{i}_{sample_id}")
+        sample_label_dir = os.path.join(label_dir,f"{i}_{sample_id}")
+        # Ensure input and label dimensions are as expected
+        input = np.asarray(input).reshape(-1, 128, 128, 1)
+        labels = np.asarray(labels).reshape(-1, 128, 128, 3)
+        
+        # Calculate the total number of patches given the specified depth and stride
+        num_patches = (input.shape[0] - depth) // stride + 1
+        logging.debug(f"input shape: {input.shape}")
+        logging.info(f"Processing Sample ID: {sample_id} | Total Patches: {num_patches}")
         for j in range(num_patches):
+            create_directory_structure(sample_input_dir)
+            create_directory_structure(sample_label_dir)            
+
+            # Create patches with the specified depth, moving with the specified stride
             start = j * stride
-            input_patch = input_as_matrix[start:start + depth]
-            label_patch = labels_array[start:start + depth]
+            input_patch = input[start:start+depth, :, :, :]
+            label_patch = labels[start:start+depth, :, :, :]
+            # Save each patch with the specified depth as a separate .npy file
+            input_file_path = f"{sample_input_dir}/{j+1}_patch.npy"
+            label_file_path = f"{sample_label_dir}/{j+1}_patch.npy"
+            np.save(input_file_path, input_patch.astype(np.float32))
+            np.save(label_file_path, label_patch.astype(np.float32))
+            # Log each patch's file path after saving
+            logging.debug(f"Saved input patch to: {input_file_path}")
+            logging.debug(f"Saved label patch to: {label_file_path}")
+        i += 1
 
-            input.append(input_patch)
-            preprocessed_labels.append(label_patch)
-
-            if j == 0 and use_sample:
-                ind = len(input) - 1
-
-        if sample_counter % 1000 == 0 or sample_counter == 38496:
-            logging.info(f"Testing batch {sample_counter // 1000}")
-            if use_sample:
-                input_np = np.asarray(input)
-                labels_np = np.asarray(preprocessed_labels)
-
-                X_train, X_test, y_train, y_test = train_test_split(input_np, labels_np, test_size=1, random_state=42)
-                test_loss, test_accuracy = model.evaluate(X_test, y_test)
-                print(f"Test Loss: {test_loss}, Test Accuracy: {test_accuracy}")
-
-                sample_masks = model.predict(input_np[ind].reshape(1, depth, width, height, 1))
-                sample_masks = np.transpose(sample_masks, (3, 2, 1, 0))
-
-                for channel in range(sample_masks.shape[0]):
-                    cv2.imshow(f"Predicted Channel {channel}", sample_masks[channel])
-                    cv2.waitKey(0)
-                    cv2.destroyAllWindows()
-
-                for channel in range(preprocessed_labels[ind].shape[-1]):
-                    cv2.imshow(f"True Label Channel {channel}", np.transpose(preprocessed_labels[ind], (3, 2, 1, 0))[channel])
-                    cv2.waitKey(0)
-                    cv2.destroyAllWindows()
-                return
-
-            input, preprocessed_labels = [], []  # Reset for the next batch
-        sample_counter += 1
-
-    logging.info("3D data loading and testing complete.")
-
+    logging.info("3D data preprocessing complete.")
 
 def display_labels_3d(csv_file_path='./data/train.csv', width=256, height=256, num_slices=144):
     for volume_images, volume_labels, slice_id in parser.load_data3d(csv_file_path, width, height, num_slices):
