@@ -137,8 +137,8 @@ def get_dataset(input_dir, label_dir, batch_size):
         label_data = tf.numpy_function(func=lambda f: np.load(f).astype(np.float32), inp=[label_file], Tout=tf.float32)
         
         # Explicitly set the shapes to ensure TensorFlow knows what to expect
-        input_data.set_shape([5, 256, 256, 1])  # Assuming input is 256x256 grayscale images depth 5
-        label_data.set_shape([5, 256, 256, 3])  # Assuming label is 256x256 with 3 classes depth 5
+        input_data.set_shape([5, 128, 128, 1])  # Assuming input is 256x256 grayscale images depth 5
+        label_data.set_shape([5, 128, 128, 3])  # Assuming label is 256x256 with 3 classes depth 5
 
         return input_data, label_data
 
@@ -183,7 +183,7 @@ def split_dataset(dataset, dataset_size, split_ratio=0.2):
 # Example usage:
 input_dir = './preprocessed_data3d/input_data'
 label_dir = './preprocessed_data3d/labels'
-batch_size = 32
+batch_size = 16
 
 # Load and split dataset
 dataset, batch_count = get_dataset(input_dir, label_dir, batch_size)
@@ -191,5 +191,5 @@ dataset, batch_count = get_dataset(input_dir, label_dir, batch_size)
 train_dataset, test_dataset = split_dataset(dataset, batch_count)
 # Define and train U-Net model
 model = unet_3d.define_unet_3d()
-model = train_unet(train_dataset, test_dataset, model, batch_size=32)
+model = train_unet(train_dataset, test_dataset, model, batch_size=batch_size)
 model.save("model.h5")
