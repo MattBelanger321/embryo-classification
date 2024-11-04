@@ -49,7 +49,7 @@ def concatenate_directory_entries(input_directories, label_directories):
     return train_input_files, train_label_files
 
 
-def create_dataset_3d(val_ratio=0.1, test_ratio=0.1, input_dir = './preprocessed_data3d/input_data', label_dir = './preprocessed_data3d/labels', batch_size = 16):
+def get_data_list(val_ratio=0.1, test_ratio=0.1, input_dir = './preprocessed_data3d/input_data', label_dir = './preprocessed_data3d/labels', batch_size = 16):
 	if val_ratio + test_ratio >= 1:
 		raise Exception("split exceeds 100%")
 
@@ -72,47 +72,11 @@ def create_dataset_3d(val_ratio=0.1, test_ratio=0.1, input_dir = './preprocessed
 	(validate_input, validate_label) = concatenate_directory_entries(validate_input_directories, validate_labels_directories)
 	(test_input, test_label) = concatenate_directory_entries(test_input_directories, test_labels_directories)
      
-	# Create a dataset from file paths
-	train_dataset = tf.data.Dataset.from_tensor_slices((list(train_input), list(train_label)))
-	validate_dataset = tf.data.Dataset.from_tensor_slices((list(validate_input), list(validate_label)))
-	test_dataset = tf.data.Dataset.from_tensor_slices((list(test_input), list(test_label)))
-    
-    # Define a function to load and preprocess each pair of input/label npy files
-	def process_npy_file(input_file, label_file):
-        # Load the .npy files using numpy_function and cast them to float32
-		input_data = tf.numpy_function(func=lambda f: np.load(f).astype(np.float32), inp=[input_file], Tout=tf.float32)
-		label_data = tf.numpy_function(func=lambda f: np.load(f).astype(np.float32), inp=[label_file], Tout=tf.float32)
-        
-        # Explicitly set the shapes to ensure TensorFlow knows what to expect
-		input_data.set_shape([5, 128, 128, 1])  # Assuming input is 256x256 grayscale images depth 5
-		label_data.set_shape([5, 128, 128, 3])  # Assuming label is 256x256 with 3 classes depth 5
-
-		return input_data, label_data
-
-    # Shuffle dataset (you can adjust the buffer size based on your total data)
-    # dataset = dataset.shuffle(buffer_size=len(input_filenames), seed=10)
-
-    # Map the file-loading function to the dataset
-	train_dataset_files = train_dataset.map(process_npy_file, num_parallel_calls=tf.data.AUTOTUNE)
-	validate_dataset_files = validate_dataset.map(process_npy_file, num_parallel_calls=tf.data.AUTOTUNE)
-	test_dataset_files = test_dataset.map(process_npy_file, num_parallel_calls=tf.data.AUTOTUNE)
-    
-    # add filenames for the generator for debugging
-    # (file, filename)
-	train_dataset = tf.data.Dataset.zip((train_dataset_files, train_dataset))
-	validate_dataset = tf.data.Dataset.zip((validate_dataset_files, validate_dataset))
-	test_dataset = tf.data.Dataset.zip((test_dataset_files, test_dataset))
-     
-	# Batch the dataset
-	train_dataset = train_dataset.batch(batch_size)
-	validate_dataset = train_dataset.batch(validate_dataset)
-	test_dataset = train_dataset.batch(test_dataset)
-     
-	return train_dataset, validate_dataset, test_dataset
+	return zip(train_input, train_label), zip(validate_input, validate_label), zip(test_input, test_label)
 
 # Example usage:
 input_dir = './preprocessed_data3d/input_data'
 label_dir = './preprocessed_data3d/labels'
 batch_size = 16
 
-create_dataset_3d(input_dir = input_dir, label_dir = label_dir, batch_size = batch_size)
+get_data_list(input_dir = input_dir, label_dir = label_dir, batch_size = batch_size)
