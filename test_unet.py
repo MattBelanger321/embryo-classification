@@ -29,7 +29,7 @@ def load_data_and_test(model,csv_file_path='./data/train.csv', width=256, height
         labels = []  # Initialize an empty list to hold labels
         for (case_name, day, slice_idx, class_name, matrix) in segmentation_mask.values():
             labels.append(matrix)  # Append the matrix to the labels list
-            if case_name == "case30" and day == "day0" and slice_idx == "slice0097":
+            if True or case_name == "case30" and day == "day0" and slice_idx == "slice0097":
                 use_sample = True
 
         # Convert the labels list to a NumPy array
@@ -78,7 +78,7 @@ def load_data_and_test(model,csv_file_path='./data/train.csv', width=256, height
                 cv2.imshow("h", np.transpose(preprocessed_labels[ind], (2, 1, 0))[2])
                 cv2.waitKey(0)
                 cv2.destroyAllWindows()
-                return;
+                # return;
             preprocessed_labels = []  # reinitialize to an empty list to hold labels
             input = [] # reinitalize to an empty list to hold inputs
         
@@ -97,7 +97,7 @@ def load_data_and_test_3d(model, csv_file_path='./data/train.csv', width=128, he
 
         for (case_name, day, slice_idx, class_name, matrix) in segmentation_mask.values():
             labels.append(matrix)
-            if case_name == "case123" and day == "day20" and slice_idx == "slice0097":
+            if True or (case_name == "case123" and day == "day20" and slice_idx == "slice0097"):
                 use_sample = True
 
         # Convert the labels list to a NumPy array for 3D volume
@@ -132,7 +132,7 @@ def load_data_and_test_3d(model, csv_file_path='./data/train.csv', width=128, he
                 sample_prediction = model.predict(np.asarray(input[ind]).reshape(1, depth, height, width, 1))
 
                 for i in range(depth):
-                    cv2.imshow(f"Prediction Channel {i}", sample_prediction[i][0].reshape(height, width, 3))
+                    cv2.imshow(f"Prediction Channel {i}", sample_prediction[0][i].reshape(height, width, 3))
                     cv2.waitKey(0)
                     cv2.destroyAllWindows()
 
@@ -141,7 +141,7 @@ def load_data_and_test_3d(model, csv_file_path='./data/train.csv', width=128, he
                     cv2.waitKey(0)
                     cv2.destroyAllWindows()
 
-                return  # Exit after one sample is visualized
+                # return  # Exit after one sample is visualized
 
             preprocessed_labels = []
             input = []
