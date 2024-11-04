@@ -30,7 +30,7 @@ class UNetBatchGenerator3D(tf.keras.utils.Sequence):
             # tensorflow will not reset our iterator
             # this means we are gaurenteed to run out of bounds
             # so we need to loop back around when we do
-            self.iterator = iter(self.dataset)
+            self.iterator = iter(self.batched_dataset)
             batch = next(self.iterator)
 
         # Inspect the batch here
@@ -40,7 +40,7 @@ class UNetBatchGenerator3D(tf.keras.utils.Sequence):
         (input_data, output_data), (input_files, output_files) = batch
 
         for i in range(len(input_files)):
-            filename = os.path.basename(input_files[i].numpy().decode("utf-8"))
+            filename = input_files[i].numpy().decode("utf-8")
             patch_input = input_data[i].numpy()  # Extract the 3D patch for input
             patch_output = output_data[i].numpy()  # Extract the 3D patch for labels
 
@@ -53,6 +53,7 @@ class UNetBatchGenerator3D(tf.keras.utils.Sequence):
                 label_slice = patch_output[z, :, :] * 255  # Scale slice to [0, 255] for visualization
                 
                 # Save each slice as an image
+                print(filename)
                 cv2.imwrite(f"./running_data3d/batch{idx}/{filename}/slice{z+1}_input.png", input_slice.astype(np.uint8))
                 cv2.imwrite(f"./running_data3d/batch{idx}/{filename}/slice{z+1}_labels.png", label_slice.astype(np.uint8))
         
