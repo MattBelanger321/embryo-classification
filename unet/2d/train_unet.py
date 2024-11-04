@@ -23,6 +23,7 @@ import FlushableStream
 
 import numpy as np
 import cv2
+import dice_coefficient_calculator as dcc
 
 def define_unet():
     inputs = Input(shape=(256, 256, 1))  # Adjust input shape as needed
@@ -82,7 +83,7 @@ def define_unet():
     # Compile the model
     model = Model(inputs=[inputs], outputs=[outputs])
     opt = Adam( clipnorm=1.0)  # Norm is clipped to 1.0
-    model.compile(optimizer=opt, loss='bce', metrics=['accuracy'])
+    model.compile(optimizer=opt, loss='bce', metrics=[dcc.compute_dice_coefficient])
     
     return model
 
