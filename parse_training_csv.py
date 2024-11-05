@@ -162,7 +162,6 @@ def load_data3d(csv_file_path='./data/train.csv', width=256, height=256):
 
                 sample_counter += 1
                 yield np.asarray(volume_images_array), np.asarray(volume_labels_array), last_case_id
-                last_case_id = f"{case_name}_{day}"
 
             labels.append(matrix)
             curr_day = day  # Update current day
@@ -182,3 +181,4 @@ def load_data3d(csv_file_path='./data/train.csv', width=256, height=256):
         # Append the slice's labels and image to the current day's volume lists
         volume_labels.append(labels_array)
         volume_images.append(input_as_matrix)
+        last_case_id = f"{case_name}_{day}"
