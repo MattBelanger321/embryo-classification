@@ -9,3 +9,4 @@ unet_model.h5
 /running_data
 /running_data3d
 *.log
+unet/2d/running_data
