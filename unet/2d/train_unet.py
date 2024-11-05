@@ -87,7 +87,7 @@ def define_unet():
     
     return model
 
-def train_unet(train, test, model, batch_size=32, epochs=2, spe=2, vsteps=1, save_path="model_epoch_{epoch:02d}.keras"):
+def train_unet(train, test, model, batch_size=32, epochs=1, spe=1, vsteps=1, save_path="model_epoch_{epoch:02d}.keras"):
     print("Fitting...")
     # Fit model and validate on test data after each epoch
 
@@ -118,7 +118,7 @@ def train_unet(train, test, model, batch_size=32, epochs=2, spe=2, vsteps=1, sav
     )
 
     print("Evaluating..")
-    _, acc = model.evaluate(test_gen, verbose=1)
+    _, acc = model.evaluate(test_gen, verbose=1, steps=spe)
     print('Test Accuracy: %.3f' % (acc * 100.0))
      
     return model
