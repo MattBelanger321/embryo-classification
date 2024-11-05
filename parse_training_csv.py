@@ -125,21 +125,46 @@ def load_data(csv_file_path='./data/train.csv', width=256, height=256):
         sample_counter += 1
         yield np.asarray(input_as_matrix), np.asarray(labels_array), slice_id
 
-def load_data3d(csv_file_path='./data/train.csv', width=256, height=256, num_slices=144):
+def load_data3d(csv_file_path='./data/train.csv', width=256, height=256):
     sample_counter = 1
     curr_day = ""
     volume_labels = []  # To hold the segmentation masks for all slices of the current day
     volume_images = []  # To hold the original images for all slices of the current day
 
     # Parse the segmentation masks and original files
+    new_sample = False
+    last_case_id = ""
     for segmentation_mask, original_file_path in parse_gi_tract_training_data(csv_file_path):
         labels = []  # Temporary list to hold labels for the current slice
-        slice_id = ""
+        slice_id = ""    
 
         # Parse each entry in the segmentation mask
+        
         for (case_name, day, slice, class_name, matrix) in segmentation_mask.values():
+
+            if len(volume_labels) != 0 and slice == "slice0001":
+                new_sample = True
+
+            # Check if we've collected all slices for the current day
+            if new_sample:
+                new_sample = False
+                # Convert lists to 3D volumes
+                volume_labels_array = np.stack(volume_labels, axis=0)  # Shape: (num_slices, height, width, channels)
+                volume_images_array = np.stack(volume_images, axis=0)  # Shape: (num_slices, height, width)
+
+                if sample_counter % 500 == 0:
+                    print(f"Loading Sample #{sample_counter}")
+                    print(f"Volume data type: {volume_images_array.dtype}")
+
+                # Reset lists for the next day's slices
+                volume_labels.clear()
+                volume_images.clear()
+
+                sample_counter += 1
+                yield np.asarray(volume_images_array), np.asarray(volume_labels_array), last_case_id
+                last_case_id = f"{case_name}_{day}"
+
             labels.append(matrix)
-            slice_id = f"{case_name}_{day}_{slice}"
             curr_day = day  # Update current day
 
         # Convert the list of matrices for this slice to a NumPy array
@@ -157,20 +182,3 @@ def load_data3d(csv_file_path='./data/train.csv', width=256, height=256, num_sli
         # Append the slice's labels and image to the current day's volume lists
         volume_labels.append(labels_array)
         volume_images.append(input_as_matrix)
-
-        # Check if we've collected all slices for the current day
-        if len(volume_labels) == num_slices:
-            # Convert lists to 3D volumes
-            volume_labels_array = np.stack(volume_labels, axis=0)  # Shape: (num_slices, height, width, channels)
-            volume_images_array = np.stack(volume_images, axis=0)  # Shape: (num_slices, height, width)
-
-            if sample_counter % 500 == 0:
-                print(f"Loading Sample #{sample_counter}")
-                print(f"Volume data type: {volume_images_array.dtype}")
-
-            # Reset lists for the next day's slices
-            volume_labels.clear()
-            volume_images.clear()
-
-            sample_counter += 1
-            yield np.asarray(volume_images_array), np.asarray(volume_labels_array), f"{case_name}_{day}"
