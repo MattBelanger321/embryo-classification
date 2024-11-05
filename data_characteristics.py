@@ -1,5 +1,10 @@
 import csv
 
+import logging
+
+# Set up logging configuration
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 def undersample_3d(csv_file_path='./data/train.csv'):
     with open(csv_file_path, newline='') as csvfile:
         reader = csv.reader(csvfile)
