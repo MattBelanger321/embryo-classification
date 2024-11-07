@@ -1,54 +1,35 @@
-from tensorflow.keras.layers import (
-    Input, Conv3D, MaxPooling3D, UpSampling3D, concatenate
-)
+from tensorflow.keras.layers import Conv3D, MaxPooling3D, UpSampling3D, concatenate, Input
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 
-def define_unet_3d():
-    inputs = Input(shape=(5, 128, 128, 1))  # Adjust the input shape if necessary
+def define_unet_3d(patch_size = 5, width = 128, height = 128):
+    inputs = Input(shape=(patch_size, width, height, 1))  # Adjust the input shape if necessary
+
     # Encoder (downsampling)
-    c1 = Conv3D(64, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(inputs)
-    c1 = Conv3D(64, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(c1)
-    d1 = MaxPooling3D((1, 2, 2))(c1)
-
-    c2 = Conv3D(128, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(d1)
-    c2 = Conv3D(128, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(c2)
-    d2 = MaxPooling3D((1, 2, 2))(c2)
-
-    c3 = Conv3D(256, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(d2)
-    c3 = Conv3D(256, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(c3)
-    d3 = MaxPooling3D((1, 2, 2))(c3)
-
-    c4 = Conv3D(512, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(d3)
-    c4 = Conv3D(512, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(c4)
-    d4 = MaxPooling3D((1, 2, 2))(c4)
+    encoder_layers = []
+    filters = 64
+    x = inputs
+    for i in range(4):
+        x = Conv3D(filters, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(x)
+        x = Conv3D(filters, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(x)
+        encoder_layers.append(x)  # Save for skip connection
+        x = MaxPooling3D((1, 2, 2))(x)
+        filters *= 2
 
     # Bottleneck
-    c5 = Conv3D(1024, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(d4)
-    c5 = Conv3D(1024, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(c5)
+    x = Conv3D(filters, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(x)
+    x = Conv3D(filters, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(x)
 
     # Decoder (upsampling)
-    u6 = UpSampling3D((1, 2, 2))(c5)
-    u6 = concatenate([u6, c4])
-    c6 = Conv3D(512, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(u6)
-    c6 = Conv3D(512, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(c6)
+    for i in range(3, -1, -1):  # Loop backwards through encoder layers
+        filters //= 2
+        x = UpSampling3D((1, 2, 2))(x)
+        x = concatenate([x, encoder_layers[i]])  # Skip connection
+        x = Conv3D(filters, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(x)
+        x = Conv3D(filters, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(x)
 
-    u7 = UpSampling3D((1, 2, 2))(c6)
-    u7 = concatenate([u7, c3])
-    c7 = Conv3D(256, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(u7)
-    c7 = Conv3D(256, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(c7)
-
-    u8 = UpSampling3D((1, 2, 2))(c7)
-    u8 = concatenate([u8, c2])
-    c8 = Conv3D(128, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(u8)
-    c8 = Conv3D(128, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(c8)
-
-    u9 = UpSampling3D((1, 2, 2))(c8)
-    u9 = concatenate([u9, c1])
-    c9 = Conv3D(64, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(u9)
-    c9 = Conv3D(64, (3, 3, 3), activation='relu', kernel_initializer='he_uniform', padding='same')(c9)
-
-    outputs = Conv3D(3, (1, 1, 1), activation='sigmoid')(c9)  # Adjust activation and filters for multi-class segmentation
+    # Output layer
+    outputs = Conv3D(3, (1, 1, 1), activation='sigmoid')(x)  # Adjust activation and filters for multi-class segmentation
 
     # Compile the model
     model = Model(inputs=[inputs], outputs=[outputs])

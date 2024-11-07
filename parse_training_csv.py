@@ -125,7 +125,7 @@ def load_data(csv_file_path='./data/train.csv', width=256, height=256):
         sample_counter += 1
         yield np.asarray(input_as_matrix), np.asarray(labels_array), slice_id
 
-def load_data3d(csv_file_path='./data/train.csv', width=256, height=256):
+def load_data_as_volume(csv_file_path='./data/train.csv', width=256, height=256):
     sample_counter = 1
     curr_day = ""
     volume_labels = []  # To hold the segmentation masks for all slices of the current day

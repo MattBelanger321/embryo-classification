@@ -1,4 +1,4 @@
-import math
+import pickle
 from random import shuffle
 import sys
 import os
@@ -7,34 +7,22 @@ import os
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, parent_dir)
 
-import tensorflow as tf
-import glob
-import random
-
-from tensorflow.keras.callbacks import ModelCheckpoint
-import parse_training_csv as parser
+from unet_2d import define_unet
 from batch_generator import UNetBatchGenerator as batch_generator
 
-from unet_2d import define_unet
-
-from sklearn.model_selection import train_test_split
-
-import FlushableStream
+import tensorflow as tf
+from tensorflow.keras.callbacks import ModelCheckpoint
+from split_data import get_data_list
 
 import numpy as np
-import cv2
-import metrics_calculator as mc
 
-def train_unet(train, test, model, batch_size=32, epochs=1, spe=1, vsteps=1, save_path="model_epoch_{epoch:02d}.keras"):
+def train_unet(train, validate, test, model, batch_size=32, epochs=2, spe=2, vsteps=1, save_path="model_epoch_{epoch:02d}.keras"):
     print("Fitting...")
     # Fit model and validate on test data after each epoch
 
     train_gen = batch_generator(train, batch_size) # the training data generator
-    test_gen =  batch_generator(test, batch_size) # the training data generator
-
-    print(f"{train}")
-    print(f"{test}")
-    print(f"{test_gen.__len__()}")
+    validate_gen = batch_generator(validate, batch_size)
+    test_gen =  batch_generator(test, batch_size) # the test data generator
 
     # Define the ModelCheckpoint callback
     checkpoint_callback = ModelCheckpoint(
@@ -48,15 +36,19 @@ def train_unet(train, test, model, batch_size=32, epochs=1, spe=1, vsteps=1, sav
     history = model.fit(
         train_gen,
         epochs=epochs,
-        validation_data=test_gen,
+        validation_data=validate_gen,
         verbose=1,
         steps_per_epoch=spe,
         validation_steps=vsteps,
         callbacks=[checkpoint_callback]
     )
 
+    # Try saving the entire History object directly
+    with open("history_full2D.pickle", "wb") as f:
+        pickle.dump(history, f)
+
     print("Evaluating..")
-    _, acc = model.evaluate(test_gen, verbose=1, steps=spe)
+    _, acc = model.evaluate(test_gen, verbose=1)
     print('Test Accuracy: %.3f' % (acc * 100.0))
      
     return model
@@ -116,58 +108,6 @@ def is_normalized(dataset):
 def validate_dataset(dataset):
     return not dataset_has_nan(dataset) and is_float32(dataset) and is_normalized(dataset)
 
-def get_dataset(input_dir, label_dir, batch_size):
-    # Get list of all input and label files
-    input_filenames = glob.glob(f"{input_dir}/*.npy")
-    label_filenames = glob.glob(f"{label_dir}/*.npy")
-
-    # Pair the filenames together
-    paired_filenames = list(zip(input_filenames, label_filenames))
-
-    # Shuffle the pairs together
-    random.seed(42)
-    random.shuffle(paired_filenames)
-
-    # Unzip the shuffled pairs back into separate lists
-    input_filenames, label_filenames = zip(*paired_filenames)
-
-    # Create a dataset from file paths
-    dataset = tf.data.Dataset.from_tensor_slices((list(input_filenames), list(label_filenames)))
-    
-    # Define a function to load and preprocess each pair of input/label npy files
-    def process_npy_file(input_file, label_file):
-        # Load the .npy files using numpy_function and cast them to float32
-        input_data = tf.numpy_function(func=lambda f: np.load(f).astype(np.float32), inp=[input_file], Tout=tf.float32)
-        label_data = tf.numpy_function(func=lambda f: np.load(f).astype(np.float32), inp=[label_file], Tout=tf.float32)
-        
-        # Remove any singleton dimensions (e.g., [1, 256, 256, 1] -> [256, 256, 1])
-        input_data = tf.squeeze(input_data, axis=0)  # Remove the unnecessary first dimension
-        label_data = tf.squeeze(label_data, axis=0)  # Remove the unnecessary first dimension
-        
-        # Explicitly set the shapes to ensure TensorFlow knows what to expect
-        input_data.set_shape([256, 256, 1])  # Assuming input is 256x256 grayscale images
-        label_data.set_shape([256, 256, 3])  # Assuming label is 256x256 with 3 classes
-
-        return input_data, label_data
-
-    # Shuffle dataset (you can adjust the buffer size based on your total data)
-    # dataset = dataset.shuffle(buffer_size=len(input_filenames), seed=10)
-
-    # Map the file-loading function to the dataset
-    dataset_files = dataset.map(process_npy_file, num_parallel_calls=tf.data.AUTOTUNE)
-    
-    # add filenames for the generator for debugging
-    # (file, filename)
-    dataset = tf.data.Dataset.zip((dataset_files, dataset))
-
-    # Batch the dataset
-    dataset = dataset.batch(batch_size)
-    
-    # if not validate_dataset(dataset):
-    #     raise Exception("Data is INVALID")
-
-    return dataset, len(input_filenames) // batch_size
-
 def split_dataset(dataset, dataset_size, split_ratio=0.2):
     # Ensure the split ratio is a float between 0 and 1
     if not (0 <= split_ratio <= 1):
@@ -181,27 +121,22 @@ def split_dataset(dataset, dataset_size, split_ratio=0.2):
     if train_size <= 0 or test_size <= 0:
         raise ValueError("Dataset size is too small for the specified split ratio.")
 
-    # Create train and test datasets
+    # Create train and teimport unet3dst datasets
     train_dataset = dataset.take(train_size)
     test_dataset = dataset.skip(train_size).take(test_size)
     
     return train_dataset, test_dataset
 
 
-# Usage
-flushable_stream = FlushableStream.FlushableStream("output.log", flush_interval=2)  # Flush every 2 seconds
-sys.stdout = flushable_stream  # Redirect stdout
-
 # Example usage:
 input_dir = './preprocessed_data2d/input_data'
 label_dir = './preprocessed_data2d/labels'
-batch_size = 32
+batch_size = 16
 
 # Load and split dataset
-dataset, batch_count = get_dataset(input_dir, label_dir, batch_size)
+train, validate, test = get_data_list(input_dir = input_dir, label_dir = label_dir, batch_size = batch_size)
 
-train_dataset, test_dataset = split_dataset(dataset, batch_count)
 # Define and train U-Net model
-model = define_unet()
-model = train_unet(train_dataset, test_dataset, model, batch_size=32)
-model.save("model.h5")
+model = define_unet(width=128, height=128)
+model = train_unet(train, validate, test, model, batch_size=batch_size)
+model.save("model_2d.h5")

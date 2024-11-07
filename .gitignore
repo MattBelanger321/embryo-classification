@@ -7,6 +7,9 @@
 # test_unet.py
 unet_model.h5
 /running_data
+/running_data2d
 /running_data3d
 *.log
 unet/2d/running_data
+
+*.pickle

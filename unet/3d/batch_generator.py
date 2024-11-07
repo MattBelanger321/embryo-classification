@@ -53,7 +53,6 @@ class UNetBatchGenerator3D(tf.keras.utils.Sequence):
                 label_slice = patch_output[z, :, :] * 255  # Scale slice to [0, 255] for visualization
                 
                 # Save each slice as an image
-                print(filename)
                 cv2.imwrite(f"./running_data3d/batch{idx}/{filename}/slice{z+1}_input.png", input_slice.astype(np.uint8))
                 cv2.imwrite(f"./running_data3d/batch{idx}/{filename}/slice{z+1}_labels.png", label_slice.astype(np.uint8))
         

@@ -10,6 +10,8 @@ sys.path.insert(0, parent_dir)
 import unet_3d
 from batch_generator import UNetBatchGenerator3D as batch_generator
 
+import pickle
+
 import tensorflow as tf
 import glob
 import random
@@ -48,6 +50,10 @@ def train_unet(train, validate, test, model, batch_size=32, epochs=2, spe=2, vst
         validation_steps=vsteps,
         callbacks=[checkpoint_callback]
     )
+
+    # Try saving the entire History object directly
+    with open("history_full3D.pickle", "wb") as f:
+        pickle.dump(history, f)
 
     print("Evaluating..")
     _, acc = model.evaluate(test_gen, verbose=1)
