@@ -25,6 +25,7 @@ import FlushableStream
 import numpy as np
 import cv2
 import metrics_calculator as mc
+import history_visualization as hv
 
 def define_unet():
     inputs = Input(shape=(256, 256, 1))  # Adjust input shape as needed
@@ -118,19 +119,17 @@ def train_unet(train, test, model, batch_size=32, epochs=1, spe=1, vsteps=1, sav
         callbacks=[checkpoint_callback]
     )
     
-    save_history(history)
+    # Save metrics for visualization
+    hv.save_history(history, filename="history_2d.csv")
+
+    # Visualize performance
+    hv.visualize_history(history)
 
     print("Evaluating..")
     _, acc = model.evaluate(test_gen, verbose=1, steps=spe)
     print('Test Accuracy: %.3f' % (acc * 100.0))
      
     return model
-
-# Save history for visualization
-def save_history(history, filename='history.csv'):
-    df = pd.DataFrame(history.history)
-    df.to_csv(filename, index=False)
-    return df
 
 # Function to check for NaN values in a batch of input/label pairs
 def contains_nan(batch):
