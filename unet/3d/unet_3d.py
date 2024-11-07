@@ -3,6 +3,7 @@ from tensorflow.keras.layers import (
 )
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
+import metrics_calculator_3d as mc
 
 def define_unet_3d():
     inputs = Input(shape=(5, 128, 128, 1))  # Adjust the input shape if necessary
@@ -53,6 +54,6 @@ def define_unet_3d():
     # Compile the model
     model = Model(inputs=[inputs], outputs=[outputs])
     opt = Adam(clipnorm=1.0)  # Norm is clipped to 1.0
-    model.compile(optimizer=opt, loss='binary_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer=opt, loss='binary_crossentropy', metrics=[mc.dice_coefficient])
     
     return model

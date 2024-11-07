@@ -2,6 +2,7 @@ import math
 from random import shuffle
 import sys
 import os
+import pandas as pd
 
 # Get the parent directory and add it to sys.path
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -116,12 +117,20 @@ def train_unet(train, test, model, batch_size=32, epochs=1, spe=1, vsteps=1, sav
         validation_steps=vsteps,
         callbacks=[checkpoint_callback]
     )
+    
+    save_history(history)
 
     print("Evaluating..")
     _, acc = model.evaluate(test_gen, verbose=1, steps=spe)
     print('Test Accuracy: %.3f' % (acc * 100.0))
      
     return model
+
+# Save history for visualization
+def save_history(history, filename='history.csv'):
+    df = pd.DataFrame(history.history)
+    df.to_csv(filename, index=False)
+    return df
 
 # Function to check for NaN values in a batch of input/label pairs
 def contains_nan(batch):
