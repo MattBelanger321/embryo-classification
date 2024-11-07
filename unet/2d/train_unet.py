@@ -122,9 +122,6 @@ def train_unet(train, test, model, batch_size=32, epochs=1, spe=1, vsteps=1, sav
     # Save metrics for visualization
     hv.save_history(history, filename="history_2d.csv")
 
-    # Visualize performance
-    hv.visualize_history(history)
-
     print("Evaluating..")
     _, acc = model.evaluate(test_gen, verbose=1, steps=spe)
     print('Test Accuracy: %.3f' % (acc * 100.0))
