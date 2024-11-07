@@ -2,6 +2,7 @@ import math
 from random import shuffle
 import sys
 import os
+import pandas as pd
 
 # Get the parent directory and add it to sys.path
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -24,6 +25,7 @@ import FlushableStream
 import numpy as np
 import cv2
 import metrics_calculator as mc
+import history_visualization as hv
 
 def define_unet():
     inputs = Input(shape=(256, 256, 1))  # Adjust input shape as needed
@@ -116,6 +118,9 @@ def train_unet(train, test, model, batch_size=32, epochs=1, spe=1, vsteps=1, sav
         validation_steps=vsteps,
         callbacks=[checkpoint_callback]
     )
+    
+    # Save metrics for visualization
+    hv.save_history(history, filename="history_2d.csv")
 
     print("Evaluating..")
     _, acc = model.evaluate(test_gen, verbose=1, steps=spe)
