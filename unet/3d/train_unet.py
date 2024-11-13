@@ -23,6 +23,7 @@ import parse_training_csv as parser
 from split_data import get_data_list
 
 import numpy as np
+import history_visualization as hv
 
 def train_unet(train, validate, test, model, batch_size=32, epochs=2, spe=2, vsteps=1, save_path="model_epoch_{epoch:02d}.keras"):
     print("Fitting...")
@@ -54,6 +55,8 @@ def train_unet(train, validate, test, model, batch_size=32, epochs=2, spe=2, vst
     # Try saving the entire History object directly
     with open("history_full3D.pickle", "wb") as f:
         pickle.dump(history, f)
+    # Save metrics in history to a separate file
+    hv.save_history(history, filename="history_3d.csv")
 
     print("Evaluating..")
     _, acc = model.evaluate(test_gen, verbose=1)

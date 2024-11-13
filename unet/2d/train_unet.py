@@ -2,6 +2,7 @@ import pickle
 from random import shuffle
 import sys
 import os
+import pandas as pd
 
 # Get the parent directory and add it to sys.path
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -15,6 +16,9 @@ from tensorflow.keras.callbacks import ModelCheckpoint
 from split_data import get_data_list
 
 import numpy as np
+import cv2
+import metrics_calculator as mc
+import history_visualization as hv
 
 def train_unet(train, validate, test, model, batch_size=32, epochs=2, spe=2, vsteps=1, save_path="model_epoch_{epoch:02d}.keras"):
     print("Fitting...")
@@ -42,6 +46,9 @@ def train_unet(train, validate, test, model, batch_size=32, epochs=2, spe=2, vst
         validation_steps=vsteps,
         callbacks=[checkpoint_callback]
     )
+    
+    # Save metrics for visualization
+    hv.save_history(history, filename="history_2d.csv")
 
     # Try saving the entire History object directly
     with open("history_full2D.pickle", "wb") as f:

@@ -62,7 +62,7 @@ def parse_gi_tract_training_data(csv_file_path='./data/train.csv'):
 		reader = csv.reader(csvfile)
 		next(reader)  # discard CSV header
         
-		i = 1;
+		i = 1
 		all_segments = {}
 		for row in reader:
 			# Validate class
