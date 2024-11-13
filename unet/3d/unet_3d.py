@@ -35,6 +35,6 @@ def define_unet_3d(patch_size = 5, width = 128, height = 128):
     # Compile the model
     model = Model(inputs=[inputs], outputs=[outputs])
     opt = Adam(clipnorm=1.0)  # Norm is clipped to 1.0
-    model.compile(optimizer=opt, loss='binary_crossentropy', metrics=[mc.compute_3d_hausdorff_distance])
+    model.compile(optimizer=opt, loss='binary_crossentropy', metrics=[mc.compute_accuracy3d])
     
     return model
