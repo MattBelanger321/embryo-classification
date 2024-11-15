@@ -17,7 +17,7 @@ from split_data import get_data_list
 
 import numpy as np
 import cv2
-import metrics_calculator as mc
+from ..metrics import metrics_calculator as mc
 import history_visualization as hv
 
 def train_unet(train, validate, test, model, batch_size=32, epochs=2, spe=2, vsteps=1, save_path="model_epoch_{epoch:02d}.keras"):
