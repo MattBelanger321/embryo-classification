@@ -1,7 +1,7 @@
 from tensorflow.keras.layers import Conv3D, MaxPooling3D, UpSampling3D, concatenate, Input
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
-import metrics_calculator_3d as mc
+from ..metrics import metrics_calculator_3d as mc
 
 def define_unet_3d(patch_size = 5, width = 128, height = 128):
     inputs = Input(shape=(patch_size, width, height, 1))  # Adjust the input shape if necessary
@@ -35,6 +35,6 @@ def define_unet_3d(patch_size = 5, width = 128, height = 128):
     # Compile the model
     model = Model(inputs=[inputs], outputs=[outputs])
     opt = Adam(clipnorm=1.0)  # Norm is clipped to 1.0
-    model.compile(optimizer=opt, loss='binary_crossentropy', metrics=[mc.compute_accuracy3d])
+    model.compile(optimizer=opt, loss='binary_crossentropy', metrics=[mc.accuracy_metric_3d])
     
     return model
