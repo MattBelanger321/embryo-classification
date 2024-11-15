@@ -5,10 +5,12 @@ from tensorflow.keras.models import load_model
 import importlib.util
 import metrics_calculator as mc
 
-directory_2d = '../unet/2d/'
-directory_3d = '../unet/3d'
+# TODO Use relative path
+directory_2d = '/Users/meshwa/Desktop/COMP 8610/gi-tract-classification/unet/2d'
+directory_3d = '/Users/meshwa/Desktop/COMP 8610/gi-tract-classification/unet/3d'
 
 # Plot Loss
+# TODO Code optimization: Pass models and pickles as list to function so that we can iterate over that list
 def visualizeLossAndAccuracy():
     # Load object from pickle file
     # 2D BASE UNET
@@ -16,6 +18,7 @@ def visualizeLossAndAccuracy():
     history_object_2d_base = pickle.load(history_file_2d_base)
 
     # Load 2D UNET WITH DROPOUT for getting custom_metric
+    # TODO Use relative path
     withDropout_2D = load_model('/Users/meshwa/Desktop/COMP 8610/gi-tract-classification/unet/2d/2d_with_dropout.h5', custom_objects={'combined_metric': mc.combined_metric})
 
     # 2D UNET WITH DROPOUT
