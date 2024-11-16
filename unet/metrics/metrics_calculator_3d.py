@@ -1,5 +1,5 @@
 import tensorflow as tf
-import metrics_calculator as mc
+import unet.metrics.metrics_calculator as mc
 
 def accuracy_metric_3d(y_true, y_pred):
     # Initialize list to store individual metric results

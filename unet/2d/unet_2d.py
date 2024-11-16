@@ -1,7 +1,8 @@
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, UpSampling2D, concatenate, Input
 from tensorflow.keras.optimizers import SGD, Adam
-from ..metrics import metrics_calculator as mc
+from unet.metrics import metrics_calculator as mc
+
 def define_unet(width = 256, height = 256):
     inputs = Input(shape=(width, height, 1))  # Adjust input shape as needed
 
@@ -34,6 +35,6 @@ def define_unet(width = 256, height = 256):
     # Compile the model
     model = Model(inputs=[inputs], outputs=[outputs])
     opt = Adam( clipnorm=1.0)  # Norm is clipped to 1.0
-    model.compile(optimizer=opt, loss='binary_crossentropy', metrics=[mc.accuracy_metric])
+    model.compile(optimizer=opt, loss='binary_crossentropy', metrics=[mc.combined_metric])
     
     return model

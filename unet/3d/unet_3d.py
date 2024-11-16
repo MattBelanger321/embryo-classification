@@ -1,7 +1,7 @@
 from tensorflow.keras.layers import Conv3D, MaxPooling3D, UpSampling3D, concatenate, Input
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
-from ..metrics import metrics_calculator_3d as mc
+from unet.metrics import metrics_calculator_3d as mc
 
 def define_unet_3d(patch_size = 5, width = 128, height = 128):
     inputs = Input(shape=(patch_size, width, height, 1))  # Adjust the input shape if necessary
