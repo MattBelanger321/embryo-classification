@@ -1,6 +1,8 @@
 import tensorflow as tf
-import unet.metrics.metrics_calculator as mc
+import metrics_calculator as mc
+from tensorflow.keras.saving import register_keras_serializable
 
+@register_keras_serializable(name="accuracy_metric_3d")
 def accuracy_metric_3d(y_true, y_pred):
     # Initialize list to store individual metric results
     accuracy_scores = []
