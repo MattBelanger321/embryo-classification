@@ -2,10 +2,12 @@ from tensorflow.keras.models import load_model
 import train_unet as tu
 import numpy as np
 from unet.metrics import metrics_calculator as mc
+from batch_generator import UNetBatchGenerator as batch_generator
+import matplotlib.pyplot as plt
 
 # TODO Update the path accordingly
-input_dir = '/Users/rishabhtyagi/Desktop/Neural/gi-tract-classification/preprocessed_data2d/input_data'
-label_dir = '/Users/rishabhtyagi/Desktop/Neural/gi-tract-classification/preprocessed_data2d/labels'
+input_dir = 'input_dir'
+label_dir = 'label_dir'
 batch_size=16
 
 def test2DModel(modelPath):
@@ -14,19 +16,34 @@ def test2DModel(modelPath):
 
     # Load and split dataset
     train_dataset, validate, test_dataset = tu.get_data_list(input_dir = input_dir, label_dir = label_dir, batch_size = batch_size)
+    test_gen = batch_generator(test_dataset, batch_size)
+    
+    j=1
+    plotting = {}
+    for i in test_gen.iterator:
+        y_pred = model.predict(i[0][0])
+        metric = mc.combined_metric(i[0][1], y_pred)
+        plotting[j] = metric.numpy()
+        j=j+1
 
-    # Make predictions
-    test, label = zip(*test_dataset)
+    # Extract batch numbers (keys) and metric values (values)
+    batch_numbers = list(plotting.keys())
+    metrics_values = list(plotting.values())
 
-    for j, k in zip(test, label):
-        tensor = np.load(j)
-        y_pred = model.predict(tensor.reshape(1, 128, 128, 1))
-        y_true = np.load(k)
+    # Plot the values
+    plt.figure(figsize=(8, 6))
+    plt.plot(batch_numbers, metrics_values, marker='o', color='b', label='Metric')
 
-        # Reduce from (1, 128, 128, 3) to (128, 128, 3)
-        y_pred = np.squeeze(y_pred)
+    # Adding labels and title
+    plt.xlabel('Batch Number')
+    plt.ylabel('Metric Value')
+    plt.title('Metric Value vs. Batch Number')
+    plt.grid(True)
+    plt.legend()
 
-        print("Combined metric is: " + str(mc.combined_metric(y_true, y_pred)))
+    # Show the plot
+    plt.tight_layout()
+    plt.show()
 
 # TODO Change path accordingly since we are not committing the models
 test2DModel('/Users/rishabhtyagi/Desktop/Neural/gi-tract-classification/unet/2d/model.h5')
