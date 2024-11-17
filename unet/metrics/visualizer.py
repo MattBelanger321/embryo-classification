@@ -68,7 +68,8 @@ def visualizeLossAndAccuracy():
     plt.title('combined_metric over Epochs')
     plt.xlabel('Epochs')
     plt.ylabel('Combined Metric')
-    plt.ylim(0, 0.4)
+    plt.ylim(0.15, 0.4)
+    plt.xlim(left=0.25)
     plt.legend()
 
     plt.figure(figsize=(12, 8))
@@ -119,7 +120,7 @@ def visualizeLossAndAccuracy():
     plt.title('Training Loss over Epochs')
     plt.xlabel('Epochs')
     plt.ylabel('Training Loss')
-    plt.ylim(0, 0.075)
+    plt.ylim(0, 0.03)
     plt.legend()
 
     # Plot combined metric
